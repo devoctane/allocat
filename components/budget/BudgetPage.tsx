@@ -1,0 +1,188 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useHaptic } from "@/lib/hooks/useHaptic";
+import { BottomSheetSelect } from "@/components/ui/BottomSheetSelect";
+
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+interface CategoryData {
+  id: string;
+  name: string;
+  icon?: string | null;
+  type: string;
+  allocated: number;
+  spent: number;
+  subtitle: string;
+}
+
+interface BudgetData {
+  id: string;
+  month: number;
+  year: number;
+  totalBudget: number;
+  categories: CategoryData[];
+}
+
+interface BudgetPageProps {
+  data: BudgetData;
+  defaultMonth: number;
+  defaultYear: number;
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+export default function BudgetPage({ data, defaultMonth, defaultYear }: BudgetPageProps) {
+  const router = useRouter();
+  const haptic = useHaptic();
+
+  const totalAllocated = data.categories.reduce((s, c) => s + c.allocated, 0);
+  const totalSpent = data.categories.reduce((s, c) => s + c.spent, 0);
+  const totalRemaining = totalAllocated - totalSpent;
+
+  const isCurrentMonth = defaultMonth === (new Date().getMonth() + 1) && defaultYear === new Date().getFullYear();
+
+  function handleMonthChange(newMonthIndex: number) {
+    const monthNumber = newMonthIndex + 1; // 1-12
+    router.push(`?month=${monthNumber}&year=${defaultYear}`);
+  }
+
+  return (
+    <>
+      {/* Header */}
+      <header className="flex items-center justify-between px-6 pt-10 pb-4">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-foreground">AlloCat</h1>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mt-0.5">
+            Financial Overview
+          </p>
+        </div>
+        <Link
+          href="/profile"
+          className="flex size-10 items-center justify-center rounded-full bg-muted text-foreground"
+        >
+          <span className="material-symbols-outlined text-[20px]">account_circle</span>
+        </Link>
+      </header>
+
+      {/* Month Selector */}
+      <div className="px-4 mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-medium text-muted-foreground">Period</span>
+          {isCurrentMonth && (
+            <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Current</span>
+          )}
+        </div>
+        <BottomSheetSelect
+          title="Select Month"
+          placeholder="Select month…"
+          options={MONTHS.map((m, i) => ({ value: String(i), label: `${m} ${defaultYear}` }))}
+          value={String(defaultMonth - 1)}
+          onChange={(val) => handleMonthChange(Number(val))}
+        />
+      </div>
+
+      {/* Budget Overview Grid */}
+      <div className="px-4 mb-6">
+        <div className="grid grid-cols-3 border border-border rounded-xl overflow-hidden bg-card">
+          <div className="flex flex-col p-4 border-r border-border">
+            <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Allocated</p>
+            <p className="text-sm font-bold tabular-nums text-foreground">{formatCurrency(totalAllocated)}</p>
+          </div>
+          <div className="flex flex-col p-4 border-r border-border bg-muted/20">
+            <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Spent</p>
+            <p className="text-sm font-bold tabular-nums text-foreground">{formatCurrency(totalSpent)}</p>
+          </div>
+          <div className="flex flex-col p-4">
+            <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Remaining</p>
+            <p className={`text-sm font-bold tabular-nums ${totalRemaining < 0 ? 'text-red-400' : 'text-primary'}`}>
+              {formatCurrency(totalRemaining)}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Categories */}
+      <div className="px-4 flex-1">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Categories</h3>
+          <button
+            id="edit-all-categories"
+            className="text-[11px] font-bold text-muted-foreground underline underline-offset-4 decoration-border hover:text-foreground"
+          >
+            EDIT ALL
+          </button>
+        </div>
+
+        <div className="space-y-6">
+          {data.categories.length === 0 ? (
+            <div className="text-center py-6 text-xs text-muted-foreground uppercase tracking-widest border border-border rounded-xl">
+              No Categories configured
+            </div>
+          ) : data.categories.map((cat) => {
+            const pct = cat.allocated > 0 ? Math.min(100, Math.round((cat.spent / cat.allocated) * 100)) : 0;
+            const isOver = cat.spent > cat.allocated;
+            return (
+              <Link 
+                key={cat.id} 
+                href={`/budget/${cat.id}`} 
+                className="block"
+                onClick={() => haptic.selection()}
+              >
+                <div className="flex flex-col gap-2 group">
+                  <div className="flex justify-between items-end">
+                    <div className="flex items-center gap-2">
+                      {cat.icon ? (
+                        <span className="text-lg leading-none grayscale">{cat.icon}</span>
+                      ) : null}
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">{cat.name}</span>
+                        <span className="text-[11px] text-muted-foreground">{cat.subtitle}</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className={`text-sm font-bold tabular-nums ${isOver ? "text-red-400" : "text-foreground"}`}>
+                        {formatCurrency(cat.spent)}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground ml-1">
+                        / {formatCurrency(cat.allocated)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="w-full bg-muted h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${isOver ? "bg-red-500" : "bg-primary"}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* FAB - Will probably be handled outside or trigger a modal */}
+      <div className="fixed bottom-24 right-6 z-40">
+        <button
+          id="add-budget-item"
+          onClick={() => haptic.light()}
+          className="flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-black/20 active:scale-95 transition-transform"
+        >
+          <span className="material-symbols-outlined text-[28px]">add</span>
+        </button>
+      </div>
+    </>
+  );
+}

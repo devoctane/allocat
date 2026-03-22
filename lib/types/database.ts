@@ -1,0 +1,295 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  public: {
+    Tables: {
+      profiles: {
+        Row: {
+          id: string
+          full_name: string
+          email: string
+          is_onboarded: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          full_name: string
+          email: string
+          is_onboarded?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          full_name?: string
+          email?: string
+          is_onboarded?: boolean
+          updated_at?: string
+        }
+      }
+      budgets: {
+        Row: {
+          id: string
+          user_id: string
+          month: number
+          year: number
+          total_budget: number
+          is_locked: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          month: number
+          year: number
+          total_budget?: number
+          is_locked?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          month?: number
+          year?: number
+          total_budget?: number
+          is_locked?: boolean
+          updated_at?: string
+        }
+      }
+      categories: {
+        Row: {
+          id: string
+          budget_id: string
+          user_id: string
+          name: string
+          icon: string | null
+          type: "needs" | "wants" | "investments" | "misc"
+          allocated_amount: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          budget_id: string
+          user_id: string
+          name: string
+          icon?: string | null
+          type: "needs" | "wants" | "investments" | "misc"
+          allocated_amount?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          icon?: string | null
+          type?: "needs" | "wants" | "investments" | "misc"
+          allocated_amount?: number
+          updated_at?: string
+        }
+      }
+      budget_items: {
+        Row: {
+          id: string
+          category_id: string
+          user_id: string
+          name: string
+          planned_amount: number
+          actual_amount: number
+          is_completed: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          category_id: string
+          user_id: string
+          name: string
+          planned_amount?: number
+          actual_amount?: number
+          is_completed?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          planned_amount?: number
+          actual_amount?: number
+          is_completed?: boolean
+          updated_at?: string
+        }
+      }
+      goals: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          icon: string | null
+          target_amount: number
+          current_amount: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          icon?: string | null
+          target_amount?: number
+          current_amount?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          icon?: string | null
+          target_amount?: number
+          current_amount?: number
+          updated_at?: string
+        }
+      }
+      assets: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          icon: string | null
+          category: "liquid_cash" | "investments" | "real_estate" | "other"
+          value: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          icon?: string | null
+          category: "liquid_cash" | "investments" | "real_estate" | "other"
+          value?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          icon?: string | null
+          category?: "liquid_cash" | "investments" | "real_estate" | "other"
+          value?: number
+          updated_at?: string
+        }
+      }
+      debts: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          icon: string | null
+          type: "internal" | "external" | "lent"
+          principal: number
+          interest_rate: number
+          monthly_minimum: number
+          total_paid: number
+          is_closed: boolean
+          expected_payoff_date: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          icon?: string | null
+          type: "internal" | "external" | "lent"
+          principal?: number
+          interest_rate?: number
+          monthly_minimum?: number
+          total_paid?: number
+          is_closed?: boolean
+          expected_payoff_date?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          icon?: string | null
+          type?: "internal" | "external" | "lent"
+          principal?: number
+          interest_rate?: number
+          monthly_minimum?: number
+          total_paid?: number
+          is_closed?: boolean
+          expected_payoff_date?: string | null
+          updated_at?: string
+        }
+      }
+      reports: {
+        Row: {
+          id: string
+          budget_id: string
+          user_id: string
+          month: number
+          year: number
+          notes: string | null
+          summary_data: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          budget_id: string
+          user_id: string
+          month: number
+          year: number
+          notes?: string | null
+          summary_data?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          notes?: string | null
+          summary_data?: Json
+          updated_at?: string
+        }
+      }
+      net_worth_snapshots: {
+        Row: {
+          id: string
+          user_id: string
+          total_assets: number
+          total_liabilities: number
+          net_worth: number
+          snapshot_date: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          total_assets?: number
+          total_liabilities?: number
+          net_worth?: number
+          snapshot_date?: string
+          created_at?: string
+        }
+        Update: {
+          total_assets?: number
+          total_liabilities?: number
+          net_worth?: number
+          snapshot_date?: string
+        }
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
+  }
+}

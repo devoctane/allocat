@@ -1,0 +1,29 @@
+"use server";
+
+import { createClient } from "@/lib/supabase/server";
+import { revalidatePath } from "next/cache";
+
+export async function markUserAsOnboarded() {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Not authenticated" };
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ is_onboarded: true })
+    .eq("id", user.id);
+
+  if (error) {
+    console.error("Failed to mark user as onboarded:", error.message);
+    return { error: error.message };
+  }
+
+  // Revalidate layout to pick up profile changes if needed
+  revalidatePath("/", "layout");
+  
+  return { success: true };
+}

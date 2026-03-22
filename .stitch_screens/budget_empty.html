@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;300;400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "secondary-fixed-dim": "#ababab",
+              "on-surface": "#1a1c1c",
+              "primary-container": "#3b3b3b",
+              "on-secondary-container": "#1b1b1b",
+              "surface-container-high": "#e8e8e8",
+              "surface": "#f9f9f9",
+              "outline": "#777777",
+              "on-secondary-fixed": "#1b1b1b",
+              "surface-container": "#eeeeee",
+              "on-tertiary-fixed-variant": "#e2e2e2",
+              "primary-fixed-dim": "#474747",
+              "on-surface-variant": "#474747",
+              "error": "#ba1a1a",
+              "on-error": "#ffffff",
+              "on-secondary": "#ffffff",
+              "surface-container-low": "#f3f3f4",
+              "surface-variant": "#e2e2e2",
+              "on-primary": "#e2e2e2",
+              "inverse-surface": "#2f3131",
+              "on-secondary-fixed-variant": "#3b3b3b",
+              "inverse-on-surface": "#f0f1f1",
+              "outline-variant": "#c6c6c6",
+              "inverse-primary": "#c6c6c6",
+              "tertiary-fixed-dim": "#474747",
+              "on-background": "#1a1c1c",
+              "on-primary-container": "#ffffff",
+              "tertiary-fixed": "#5e5e5e",
+              "secondary-container": "#d4d4d4",
+              "on-tertiary": "#e2e2e2",
+              "on-primary-fixed-variant": "#e2e2e2",
+              "background": "#f9f9f9",
+              "secondary": "#5e5e5e",
+              "surface-bright": "#f9f9f9",
+              "tertiary": "#3b3b3b",
+              "primary-fixed": "#5e5e5e",
+              "on-tertiary-container": "#ffffff",
+              "primary": "#000000",
+              "on-tertiary-fixed": "#ffffff",
+              "surface-container-highest": "#e2e2e2",
+              "surface-dim": "#dadada",
+              "surface-tint": "#5e5e5e",
+              "on-error-container": "#410002",
+              "error-container": "#ffdad6",
+              "tertiary-container": "#747474",
+              "on-primary-fixed": "#ffffff",
+              "surface-container-lowest": "#ffffff",
+              "secondary-fixed": "#c6c6c6"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-black text-white min-h-screen flex flex-col font-body">
+<!-- TopAppBar -->
+<nav class="fixed top-0 w-full z-50 bg-black/80 backdrop-blur-xl border-b border-gray-900 flex justify-between items-center px-6 py-4 w-full">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-white active:scale-95 duration-200 cursor-pointer">menu</span>
+<span class="text-xl font-black tracking-tighter text-white font-headline">MONOLITH</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden md:flex gap-8">
+<span class="font-['Inter'] uppercase tracking-widest font-bold text-sm text-gray-600 hover:opacity-70 transition-opacity cursor-pointer">DASHBOARD</span>
+<span class="font-['Inter'] uppercase tracking-widest font-bold text-sm text-white hover:opacity-70 transition-opacity cursor-pointer">BUDGET</span>
+<span class="font-['Inter'] uppercase tracking-widest font-bold text-sm text-gray-600 hover:opacity-70 transition-opacity cursor-pointer">ANALYTICS</span>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-container-high overflow-hidden border border-white/10">
+<img alt="Profile" class="w-full h-full object-cover" data-alt="Close up professional male portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAFsd5NAOFQsh8QhrSfzPJ3iTQuoxpaC3Umt20ZJUkvoEW3CdmkjfCj1620o4JAKkXxvFtHFWl8O15q6AJkO_BIcmiRFBeSy8EgPzwdn7yCAdIQ5jsjV0PLu3khgoiSLt8Trj985ALKU-YSwb4r_10Q14fDNfbYG2ncPYsoeOqQGpgrPdE23Vbp53U8nSyuew2D9Y2UANMh7pas3gZonsThUrJ3krUxw00amb1sdVzfBLm13IV7BbmKq0Gxlf0kcCkwmjBSThaJvQ"/>
+</div>
+</div>
+</nav>
+<!-- Main Content: Empty State Canvas -->
+<main class="flex-grow flex flex-col items-center justify-center px-8 pt-20 pb-24">
+<div class="w-full max-w-4xl flex flex-col items-center text-center">
+<!-- Structural Asymmetry: Lead-In Header -->
+<div class="w-full mb-24 text-left">
+<h1 class="text-xs font-bold tracking-[0.2em] text-gray-500 uppercase mb-4">Current Outlook</h1>
+<div class="h-0.5 w-12 bg-white mb-8"></div>
+<h2 class="text-5xl md:text-7xl font-black tracking-tighter text-white leading-none">
+                    NO DISCIPLINE<br/>FOUND.
+                </h2>
+</div>
+<!-- Empty State Central Messaging -->
+<div class="space-y-12">
+<div class="flex flex-col items-center gap-6">
+<span class="material-symbols-outlined text-6xl text-white/20" style="font-variation-settings: 'wght' 100;">account_balance_wallet</span>
+<p class="text-xl md:text-2xl font-light tracking-tight text-gray-400 max-w-md">
+                        Your budget is empty. Establish your financial architecture to begin.
+                    </p>
+</div>
+<!-- Primary Action -->
+<button class="bg-white text-black px-12 py-5 font-bold tracking-[0.1em] text-sm active:scale-95 duration-200 transition-all hover:bg-gray-200">
+                    ADD CATEGORY
+                </button>
+</div>
+<!-- Background Monolith Aesthetic Decoration -->
+<div class="absolute inset-0 pointer-events-none overflow-hidden -z-10 opacity-5">
+<div class="absolute bottom-0 right-0 w-1/2 h-full bg-gradient-to-t from-white to-transparent transform skew-x-12"></div>
+<div class="absolute top-0 left-10 text-[20rem] font-black text-white leading-none tracking-tighter select-none">
+                    0.00
+                </div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 h-20 bg-black/80 backdrop-blur-xl border-t border-gray-900 flex justify-around items-center w-full px-8 pb-safe">
+<div class="flex items-center justify-center text-gray-600 hover:text-white transition-colors active:scale-90 duration-200 cursor-pointer">
+<span class="material-symbols-outlined text-2xl">dashboard</span>
+</div>
+<div class="flex items-center justify-center text-white scale-110 active:scale-90 duration-200 cursor-pointer">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
+</div>
+<div class="flex items-center justify-center text-gray-600 hover:text-white transition-colors active:scale-90 duration-200 cursor-pointer">
+<span class="material-symbols-outlined text-2xl">monitoring</span>
+</div>
+<div class="flex items-center justify-center text-gray-600 hover:text-white transition-colors active:scale-90 duration-200 cursor-pointer">
+<span class="material-symbols-outlined text-2xl">payments</span>
+</div>
+</nav>
+<!-- Financial Integrity Layer: Decorative Numbers -->
+<div class="fixed bottom-24 left-8 hidden lg:block opacity-30">
+<p class="font-['Inter'] tabular-nums text-[10px] tracking-widest text-gray-500 uppercase">
+            System Status: Ready<br/>
+            Ref: 0x9210_MONOLITH
+        </p>
+</div>
+</body></html>
