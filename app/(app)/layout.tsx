@@ -1,6 +1,6 @@
 import BottomNav from "@/components/BottomNav";
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import AIOverlay from "@/components/ai/AIOverlay";
+
 
 export default async function AppLayout({
   children,
@@ -15,6 +15,7 @@ export default async function AppLayout({
         {children}
       </main>
       <BottomNav />
+      <AIOverlay />
     </div>
   );
 }

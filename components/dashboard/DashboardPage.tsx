@@ -87,6 +87,10 @@ export default function DashboardPage({ data }: DashboardProps) {
   const deleteGoalMutation = useDeleteGoal();
   const updateGoalIconMutation = useUpdateGoalIcon();
   const updateBudgetMutation = useUpdateBudgetTotal();
+  const budgetError =
+    updateBudgetMutation.error instanceof Error
+      ? updateBudgetMutation.error.message
+      : "Couldn't update the total budget right now.";
 
   const currentNetWorth = data.netWorthHistory.length > 0 
     ? Number(data.netWorthHistory[data.netWorthHistory.length - 1].net_worth) 
@@ -193,6 +197,9 @@ export default function DashboardPage({ data }: DashboardProps) {
                   {data.budget.totalBudget > 0 ? Math.round((data.budget.spent / data.budget.totalBudget) * 100) : 0}%
                 </span>
               </div>
+              {updateBudgetMutation.isError ? (
+                <p className="mt-3 text-xs text-red-500">{budgetError}</p>
+              ) : null}
             </>
           )}
         </div>

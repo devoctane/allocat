@@ -41,6 +41,7 @@ export function InlineEditableNumber({ value, onSave, className = "", formatAsCu
     const num = parseFloat(currentVal);
     if (!isNaN(num) && num >= 0 && num !== value) {
       haptic.success();
+      setCurrentVal(value.toString());
       onSave(num);
     } else {
       setCurrentVal(value.toString());

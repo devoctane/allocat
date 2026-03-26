@@ -14,6 +14,14 @@ export const metadata: Metadata = {
   description:
     "A minimalist personal finance control system for disciplined budgeting and financial freedom.",
   keywords: ["budget", "finance", "net worth", "debt", "goals", "personal finance"],
+  icons: {
+    icon: [
+      { url: "/ios/32.png", sizes: "32x32", type: "image/png" },
+      { url: "/android/launchericon-192x192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: "/ios/180.png", sizes: "180x180", type: "image/png" }],
+    shortcut: "/ios/32.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

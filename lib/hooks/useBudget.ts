@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getBudgetForPeriod,
+  addBudgetCategory,
   updateBudgetTotal,
   updateCategoryAllocation,
   updateCategoryIcon,
@@ -30,6 +31,27 @@ export function useUpdateBudgetTotal() {
       month: number;
       year: number;
     }) => updateBudgetTotal(vars.budgetId, vars.totalAmount),
+    onSuccess: (_data, { month, year }) => {
+      qc.invalidateQueries({ queryKey: budgetKey(month, year) });
+      qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
+    },
+  });
+}
+
+export function useAddBudgetCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      budgetId,
+      name,
+      type = "misc",
+    }: {
+      budgetId: string;
+      name: string;
+      type?: "needs" | "wants" | "investments" | "misc";
+      month: number;
+      year: number;
+    }) => addBudgetCategory(budgetId, name, type),
     onSuccess: (_data, { month, year }) => {
       qc.invalidateQueries({ queryKey: budgetKey(month, year) });
       qc.invalidateQueries({ queryKey: DASHBOARD_KEY });

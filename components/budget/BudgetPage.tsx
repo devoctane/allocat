@@ -2,8 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Drawer } from "vaul";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useHaptic } from "@/lib/hooks/useHaptic";
+import { useAddBudgetCategory, useUpdateBudgetTotal } from "@/lib/hooks/useBudget";
 import { BottomSheetSelect } from "@/components/ui/BottomSheetSelect";
+import { InlineEditableNumber } from "@/components/ui/InlineEditableNumber";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -46,10 +50,16 @@ function formatCurrency(value: number) {
 export default function BudgetPage({ data, defaultMonth, defaultYear }: BudgetPageProps) {
   const router = useRouter();
   const haptic = useHaptic();
+  const addCategoryMutation = useAddBudgetCategory();
+  const updateBudgetTotalMutation = useUpdateBudgetTotal();
+  const addCategoryInputRef = useRef<HTMLInputElement>(null);
+  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
 
   const totalAllocated = data.categories.reduce((s, c) => s + c.allocated, 0);
   const totalSpent = data.categories.reduce((s, c) => s + c.spent, 0);
   const totalRemaining = totalAllocated - totalSpent;
+  const unallocatedBudget = data.totalBudget - totalAllocated;
 
   const isCurrentMonth = defaultMonth === (new Date().getMonth() + 1) && defaultYear === new Date().getFullYear();
 
@@ -57,6 +67,63 @@ export default function BudgetPage({ data, defaultMonth, defaultYear }: BudgetPa
     const monthNumber = newMonthIndex + 1; // 1-12
     router.push(`?month=${monthNumber}&year=${defaultYear}`);
   }
+
+  useEffect(() => {
+    if (!isAddCategoryOpen) return;
+
+    const timer = window.setTimeout(() => {
+      addCategoryInputRef.current?.focus();
+    }, 50);
+
+    return () => window.clearTimeout(timer);
+  }, [isAddCategoryOpen]);
+
+  function openAddCategory() {
+    addCategoryMutation.reset();
+    haptic.light();
+    setIsAddCategoryOpen(true);
+  }
+
+  function handleUpdateBudget(totalAmount: number) {
+    updateBudgetTotalMutation.mutate({
+      budgetId: data.id,
+      totalAmount,
+      month: defaultMonth,
+      year: defaultYear,
+    });
+  }
+
+  async function handleCreateCategory(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+
+    const name = newCategoryName.trim();
+    if (!name || addCategoryMutation.isPending) return;
+
+    try {
+      const category = await addCategoryMutation.mutateAsync({
+        budgetId: data.id,
+        name,
+        month: defaultMonth,
+        year: defaultYear,
+      });
+
+      haptic.success();
+      setIsAddCategoryOpen(false);
+      setNewCategoryName("");
+      router.push(`/budget/${category.id}`);
+    } catch {
+      haptic.error();
+    }
+  }
+
+  const addCategoryError =
+    addCategoryMutation.error instanceof Error
+      ? addCategoryMutation.error.message
+      : "Couldn't create the category right now.";
+  const budgetTotalError =
+    updateBudgetTotalMutation.error instanceof Error
+      ? updateBudgetTotalMutation.error.message
+      : "Couldn't update the total budget right now.";
 
   return (
     <>
@@ -93,6 +160,60 @@ export default function BudgetPage({ data, defaultMonth, defaultYear }: BudgetPa
         />
       </div>
 
+      {/* Total Budget */}
+      <div className="px-4 mb-4">
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-2">
+                Total Budget
+              </p>
+              <div className="text-3xl font-bold tabular-nums tracking-tight text-foreground">
+                <InlineEditableNumber
+                  value={data.totalBudget}
+                  onSave={handleUpdateBudget}
+                  className="text-3xl font-bold tracking-tight"
+                />
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Tap the amount to set the top budget for all category allocations.
+              </p>
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">
+                Total Allocated
+              </p>
+              <p className="text-sm font-bold tabular-nums text-foreground">
+                {formatCurrency(totalAllocated)}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-lg border border-border bg-background px-4 py-3">
+              <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">
+                Allocated vs Total
+              </p>
+              <p className="text-sm font-bold tabular-nums text-foreground">
+                {formatCurrency(totalAllocated)} / {formatCurrency(data.totalBudget)}
+              </p>
+            </div>
+            <div className="rounded-lg border border-border bg-background px-4 py-3">
+              <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">
+                {unallocatedBudget < 0 ? "Over Allocated" : "Left to Allocate"}
+              </p>
+              <p className={`text-sm font-bold tabular-nums ${unallocatedBudget < 0 ? "text-red-400" : "text-primary"}`}>
+                {formatCurrency(Math.abs(unallocatedBudget))}
+              </p>
+            </div>
+          </div>
+
+          {budgetTotalError ? (
+            <p className="mt-3 text-xs text-red-400">{budgetTotalError}</p>
+          ) : null}
+        </div>
+      </div>
+
       {/* Budget Overview Grid */}
       <div className="px-4 mb-6">
         <div className="grid grid-cols-3 border border-border rounded-xl overflow-hidden bg-card">
@@ -118,17 +239,31 @@ export default function BudgetPage({ data, defaultMonth, defaultYear }: BudgetPa
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Categories</h3>
           <button
-            id="edit-all-categories"
-            className="text-[11px] font-bold text-muted-foreground underline underline-offset-4 decoration-border hover:text-foreground"
+            id="add-category-inline"
+            type="button"
+            onClick={openAddCategory}
+            className="text-[11px] font-bold text-primary underline underline-offset-4 decoration-primary/40 hover:text-foreground"
           >
-            EDIT ALL
+            ADD CATEGORY
           </button>
         </div>
 
         <div className="space-y-6">
           {data.categories.length === 0 ? (
-            <div className="text-center py-6 text-xs text-muted-foreground uppercase tracking-widest border border-border rounded-xl">
-              No Categories configured
+            <div className="rounded-xl border border-dashed border-border bg-card/60 px-4 py-8 text-center">
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                No categories yet
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Create your first category to start planning this budget.
+              </p>
+              <button
+                type="button"
+                onClick={openAddCategory}
+                className="mt-5 rounded-full bg-primary px-4 py-2 text-xs font-bold uppercase tracking-widest text-primary-foreground shadow-lg shadow-black/15 active:scale-95 transition-transform"
+              >
+                Add First Category
+              </button>
             </div>
           ) : data.categories.map((cat) => {
             const pct = cat.allocated > 0 ? Math.min(100, Math.round((cat.spent / cat.allocated) * 100)) : 0;
@@ -176,13 +311,84 @@ export default function BudgetPage({ data, defaultMonth, defaultYear }: BudgetPa
       {/* FAB - Will probably be handled outside or trigger a modal */}
       <div className="fixed bottom-24 right-6 z-40">
         <button
-          id="add-budget-item"
-          onClick={() => haptic.light()}
+          id="add-budget-category"
+          type="button"
+          onClick={openAddCategory}
           className="flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-black/20 active:scale-95 transition-transform"
         >
           <span className="material-symbols-outlined text-[28px]">add</span>
         </button>
       </div>
+
+      <Drawer.Root
+        open={isAddCategoryOpen}
+        onOpenChange={(open) => {
+          setIsAddCategoryOpen(open);
+          if (!open) {
+            addCategoryMutation.reset();
+            setNewCategoryName("");
+          }
+        }}
+      >
+        <Drawer.Portal>
+          <Drawer.Overlay className="fixed inset-0 bg-black/60 z-40" />
+          <Drawer.Content
+            aria-describedby="add-category-description"
+            className="fixed bottom-0 left-0 right-0 z-50 flex flex-col rounded-t-2xl bg-card border-t border-border focus:outline-none"
+          >
+            <div className="flex justify-center pt-3 pb-1 shrink-0">
+              <div className="w-10 h-1 bg-muted rounded-full" />
+            </div>
+
+            <div className="px-5 py-4 border-b border-border">
+              <Drawer.Title className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                Add Category
+              </Drawer.Title>
+              <p id="add-category-description" className="mt-2 text-sm text-foreground">
+                Start with a name. You can set the icon, allocation, and items after it&apos;s created.
+              </p>
+            </div>
+
+            <form onSubmit={handleCreateCategory} className="px-5 py-5 space-y-4 pb-8">
+              <div className="space-y-2">
+                <label htmlFor="new-category-name" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  Category Name
+                </label>
+                <input
+                  ref={addCategoryInputRef}
+                  id="new-category-name"
+                  type="text"
+                  value={newCategoryName}
+                  onChange={(event) => setNewCategoryName(event.target.value)}
+                  placeholder="e.g. Groceries"
+                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition-colors focus:border-primary"
+                />
+              </div>
+
+              {addCategoryMutation.isError ? (
+                <p className="text-sm text-red-500">{addCategoryError}</p>
+              ) : null}
+
+              <div className="flex flex-col gap-3">
+                <button
+                  type="submit"
+                  disabled={!newCategoryName.trim() || addCategoryMutation.isPending}
+                  className="w-full rounded-xl bg-primary px-4 py-3.5 text-sm font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {addCategoryMutation.isPending ? "Creating..." : "Create Category"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAddCategoryOpen(false)}
+                  className="w-full rounded-xl bg-muted px-4 py-3.5 text-sm font-medium text-foreground"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </Drawer.Content>
+        </Drawer.Portal>
+      </Drawer.Root>
     </>
   );
 }

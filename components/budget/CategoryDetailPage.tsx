@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
-import { addBudgetItem, updateBudgetItem, deleteBudgetItem, updateCategoryAllocation, updateCategoryIcon, updateCategoryName, deleteCategory } from "@/lib/actions/budget";
+import { useState } from "react";
+import { addBudgetItem, updateBudgetItem, deleteBudgetItem, updateCategoryIcon, updateCategoryName, deleteCategory } from "@/lib/actions/budget";
 import { InlineEditableText } from "@/components/ui/InlineEditableText";
 import { InlineEditableNumber } from "@/components/ui/InlineEditableNumber";
 import EmojiPickerModal from "@/components/ui/EmojiPickerModal";
@@ -21,6 +21,8 @@ interface CategoryData {
   name: string;
   icon?: string | null;
   allocated: number;
+  totalBudget: number;
+  otherAllocated: number;
   items: BudgetItem[];
 }
 
@@ -28,35 +30,59 @@ function formatNum(value: number) {
   return `₹${value.toFixed(2)}`;
 }
 
+function getAllocatedAmount(items: BudgetItem[]) {
+  return items.reduce((sum, item) => sum + item.planned, 0);
+}
+
 export default function CategoryDetailPage({ data }: { data: CategoryData }) {
+  const syncKey = JSON.stringify({
+    id: data.id,
+    name: data.name,
+    icon: data.icon ?? null,
+    totalBudget: data.totalBudget,
+    otherAllocated: data.otherAllocated,
+    items: data.items,
+  });
+
+  return <CategoryDetailContent key={syncKey} data={data} />;
+}
+
+function CategoryDetailContent({ data }: { data: CategoryData }) {
   const router = useRouter();
   const haptic = useHaptic();
 
   const [items, setItems] = useState<BudgetItem[]>(data.items);
-  const [allocated, setAllocated] = useState(data.allocated);
   const [icon, setIcon] = useState(data.icon || null);
   const [name, setName] = useState(data.name);
   const [newItemName, setNewItemName] = useState("");
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [validationError, setValidationError] = useState("");
 
-  // Sync state when server data changes (only on mount or data.id change)
-  useEffect(() => {
-    // Sync after server mutation with router.refresh()
-    const timer = setTimeout(() => {
-      setItems(data.items);
-      setIcon(data.icon || null);
-      setName(data.name);
-    }, 0);
-    return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.id]);
-
+  const allocated = getAllocatedAmount(items);
+  const totalAllocated = data.otherAllocated + allocated;
   const used = items.reduce((s, i) => s + i.actual, 0);
   const left = allocated - used;
   const pct = allocated > 0
     ? Math.min(100, Math.round((used / allocated) * 100))
     : 0;
+  const categoryBudgetCap = Math.max(0, data.totalBudget - data.otherAllocated);
+  const remainingBudgetCapacity = data.totalBudget - totalAllocated;
+
+  function getAllocationValidationMessage(nextAllocated: number) {
+    const nextTotalAllocated = data.otherAllocated + nextAllocated;
+    const currentTotalAllocated = data.otherAllocated + allocated;
+
+    if (nextTotalAllocated <= data.totalBudget || nextTotalAllocated <= currentTotalAllocated) {
+      return "";
+    }
+
+    if (data.totalBudget <= 0) {
+      return "Set the Total Budget before allocating more items.";
+    }
+
+    return `This change exceeds the total budget by ${formatNum(nextTotalAllocated - data.totalBudget)}. Reduce another category or increase the total budget first.`;
+  }
 
   async function handleAddItem() {
     if (!newItemName.trim()) return;
@@ -72,36 +98,53 @@ export default function CategoryDetailPage({ data }: { data: CategoryData }) {
       { id: tempId, name, planned: 0, actual: 0 },
     ]);
     setNewItemName("");
+    setValidationError("");
 
-    // Server Action
-    const inserted = await addBudgetItem(data.id, name, 0);
-    if (inserted) {
+    try {
+      const inserted = await addBudgetItem(data.id, name, 0);
       setItems((prev) => prev.map(i => i.id === tempId ? { ...i, id: inserted.id } : i));
       router.refresh();
+    } catch (error) {
+      haptic.error();
+      setItems((prev) => prev.filter((item) => item.id !== tempId));
+      setNewItemName(name);
+      setValidationError(
+        error instanceof Error ? error.message : "Couldn't add the item right now."
+      );
     }
   }
 
   async function handleUpdateItem(id: string, updates: Partial<BudgetItem>) {
-    // Optimistic
-    setItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
-    );
+    const previousItems = items;
+    const nextItems = items.map((item) => (item.id === id ? { ...item, ...updates } : item));
 
-    // Server Action
+    if (updates.planned !== undefined) {
+      const validationMessage = getAllocationValidationMessage(getAllocatedAmount(nextItems));
+      if (validationMessage) {
+        haptic.error();
+        setValidationError(validationMessage);
+        return;
+      }
+    }
+
+    setValidationError("");
+    setItems(nextItems);
+
     const serverUpdates: Record<string, string | number | boolean> = {};
     if (updates.name !== undefined) serverUpdates.name = updates.name;
     if (updates.planned !== undefined) serverUpdates.planned_amount = updates.planned;
     if (updates.actual !== undefined) serverUpdates.actual_amount = updates.actual;
 
-    await updateBudgetItem(id, serverUpdates);
-    router.refresh();
-  }
-
-  async function handleUpdateAllocation(val: number) {
-    if (val < 0) return;
-    setAllocated(val);
-    await updateCategoryAllocation(data.id, val);
-    router.refresh();
+    try {
+      await updateBudgetItem(id, serverUpdates);
+      router.refresh();
+    } catch (error) {
+      haptic.error();
+      setItems(previousItems);
+      setValidationError(
+        error instanceof Error ? error.message : "Couldn't update the item right now."
+      );
+    }
   }
 
   async function handleUpdateIcon(newIcon: string) {
@@ -127,12 +170,20 @@ export default function CategoryDetailPage({ data }: { data: CategoryData }) {
     // Performance: Haptic feedback
     haptic.heavy();
 
-    // Optimistic
+    const previousItems = items;
     setItems((prev) => prev.filter((item) => item.id !== id));
-    
-    // Server Action
-    await deleteBudgetItem(id);
-    router.refresh();
+    setValidationError("");
+
+    try {
+      await deleteBudgetItem(id);
+      router.refresh();
+    } catch (error) {
+      haptic.error();
+      setItems(previousItems);
+      setValidationError(
+        error instanceof Error ? error.message : "Couldn't delete the item right now."
+      );
+    }
   }
 
   return (
@@ -183,12 +234,10 @@ export default function CategoryDetailPage({ data }: { data: CategoryData }) {
 
       {/* Summary Badges */}
       <div className="px-4 mb-6 grid grid-cols-3 gap-3">
-        {/* Special case for Allocated since it's editable */}
         <div className="flex flex-col gap-1 p-4 border border-border rounded-lg bg-card text-foreground">
           <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Allocated</span>
-          <span className="text-base font-bold tabular-nums">
-            <InlineEditableNumber value={allocated} onSave={handleUpdateAllocation} />
-          </span>
+          <span className="text-base font-bold tabular-nums">{formatNum(allocated)}</span>
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Auto from items</span>
         </div>
         
         {[
@@ -209,6 +258,43 @@ export default function CategoryDetailPage({ data }: { data: CategoryData }) {
             </span>
           </div>
         ))}
+      </div>
+
+      <div className="px-4 mb-4 space-y-1">
+        <p className="text-[11px] tabular-nums text-muted-foreground">
+          Total budget {formatNum(data.totalBudget)} • Total allocated {formatNum(totalAllocated)}
+        </p>
+        <p className="text-[11px] tabular-nums text-muted-foreground">
+          Category cap {formatNum(categoryBudgetCap)} • Other categories {formatNum(data.otherAllocated)}
+        </p>
+        {data.totalBudget <= 0 ? (
+          <>
+            <p className="text-xs text-muted-foreground">
+              Set the Total Budget on the budget page before allocating item amounts here.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                haptic.light();
+                router.back();
+              }}
+              className="inline-flex text-xs font-semibold text-primary underline underline-offset-4 decoration-primary/40"
+            >
+              Go back and set it
+            </button>
+          </>
+        ) : remainingBudgetCapacity < 0 ? (
+          <p className="text-xs text-red-400">
+            This budget is {formatNum(Math.abs(remainingBudgetCapacity))} over the total budget cap.
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {formatNum(remainingBudgetCapacity)} still available before this budget hits the top limit.
+          </p>
+        )}
+        {validationError ? (
+          <p className="text-xs text-red-400">{validationError}</p>
+        ) : null}
       </div>
 
       {/* Items Section Label */}

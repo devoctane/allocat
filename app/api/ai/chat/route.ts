@@ -1,0 +1,100 @@
+import { buildFinancialContext } from "@/lib/actions/ai-chat";
+import { detectTopic } from "@/lib/ai-utils";
+import { createClient } from "@/lib/supabase/server";
+
+// Max number of previous messages to retain in the window (system prompt excluded)
+const HISTORY_WINDOW = 8;
+
+// Hard off-topic keywords — checked BEFORE calling the AI
+const OFF_TOPIC_PATTERNS =
+  /\b(recipe|movie|game|sport|weather|news|code|programming|sing|joke|story|poem|political|religion|travel|fashion|music|celebrity|health advice|medical|legal|romantic|dating)\b/i;
+
+const OFF_TOPIC_REPLY = `data: ${JSON.stringify({
+  choices: [{ delta: { content: "I only help with your personal finances. Ask me about your budget, goals, net worth, or debts!" } }],
+})}\n\ndata: [DONE]\n\n`;
+
+type ChatMessage = { role: "user" | "assistant" | "system"; content: string };
+
+export async function POST(req: Request) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  }
+
+  const { messages }: { messages: ChatMessage[] } = await req.json();
+  const userMessages = (messages ?? []).filter((m) => m.role !== "system");
+
+  // ── 1. Hard off-topic guard (no AI call needed) ───────────────────────────
+  const lastUserMsg =
+    [...userMessages].reverse().find((m) => m.role === "user")?.content ?? "";
+
+  if (OFF_TOPIC_PATTERNS.test(lastUserMsg)) {
+    return new Response(OFF_TOPIC_REPLY, {
+      headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+    });
+  }
+
+  // ── 2. Detect topic → fetch only relevant data ────────────────────────────
+  const topics = detectTopic(lastUserMsg);
+  const context = await buildFinancialContext(topics);
+
+  // ── 3. Build system prompt (sent on every request, size is fixed) ─────────
+  const systemPrompt = [
+    "You are AlloCat, a personal finance assistant built into the AlloCat app.",
+    "You have live access to this user's financial data, provided below.",
+    "",
+    "STRICT RULES — follow every single one:",
+    "1. ONLY answer questions about the user's personal finances (budget, spending, goals, debts, net worth).",
+    "2. If the question is unrelated to the user's finances, respond ONLY with: \"I can only help with your finances — ask me about your budget, goals, or debts!\"",
+    "3. Never make up numbers. Only use figures from the data below.",
+    "4. ALWAYS respond in short bullet points. Never write long prose paragraphs. Max 1 sentence per bullet.",
+    "5. Use ₹ for all currency. Be direct and clear.",
+    "6. Be supportive and honest — no lectures, no fluff.",
+    "",
+    "User's current financial data:",
+    context,
+  ].join("\n");
+
+  // ── 4. Sliding window — only last N messages, never grow unbounded ─────────
+  const windowedMessages = userMessages.slice(-HISTORY_WINDOW);
+
+  // ── 5. Call OpenRouter ────────────────────────────────────────────────────
+  const openRouterRes = await fetch(
+    "https://openrouter.ai/api/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        "HTTP-Referer": "https://allocat.app",
+        "X-Title": "AlloCat",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "stepfun/step-3.5-flash:free",
+        stream: true,
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...windowedMessages,
+        ],
+      }),
+    }
+  );
+
+  if (!openRouterRes.ok) {
+    const err = await openRouterRes.text();
+    return new Response(JSON.stringify({ error: err }), {
+      status: openRouterRes.status,
+    });
+  }
+
+  return new Response(openRouterRes.body, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
+}
