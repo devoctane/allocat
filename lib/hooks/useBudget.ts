@@ -1,36 +1,110 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  getBudgetForPeriod,
-  addBudgetCategory,
-  updateBudgetTotal,
-  updateCategoryAllocation,
-  updateCategoryIcon,
-  addBudgetItem,
-  updateBudgetItem,
-  deleteBudgetItem,
-} from "@/lib/actions/budget";
+import { getBudgetForPeriod } from "@/lib/actions/budget";
+import { getDB } from "@/lib/db";
+import { useEnqueue } from "@/lib/hooks/useSync";
 import { DASHBOARD_KEY } from "./useDashboard";
 
 export function budgetKey(month: number, year: number) {
   return ["budget", month, year] as const;
 }
 
+// ─── IDB read helper ──────────────────────────────────────────────────────────
+
+async function getBudgetFromIDB(month: number, year: number) {
+  const db = getDB();
+
+  const budget = await db.budgets
+    .where("[month+year]")
+    .equals([month, year])
+    .first();
+
+  if (!budget) return null;
+
+  const categories = await db.categories
+    .where("budget_id")
+    .equals(budget.id)
+    .toArray();
+
+  const enrichedCategories = await Promise.all(
+    categories.map(async (cat) => {
+      const items = await db.budget_items
+        .where("category_id")
+        .equals(cat.id)
+        .toArray();
+
+      const allocated = items.reduce(
+        (s, i) => s + Number(i.planned_amount),
+        0
+      );
+      const spent = items.reduce((s, i) => s + Number(i.actual_amount), 0);
+
+      return {
+        id: cat.id,
+        name: cat.name,
+        icon: cat.icon,
+        type: cat.type,
+        allocated,
+        spent,
+        subtitle: `${items.length} items`,
+      };
+    })
+  );
+
+  return {
+    id: budget.id,
+    month: budget.month,
+    year: budget.year,
+    totalBudget: Number(budget.total_budget),
+    categories: enrichedCategories,
+  };
+}
+
+// ─── Query ────────────────────────────────────────────────────────────────────
+
 export function useBudgetData(month: number, year: number) {
   return useQuery({
     queryKey: budgetKey(month, year),
-    queryFn: () => getBudgetForPeriod(month, year),
+    queryFn: async () => {
+      // Serve from IDB first — instant, works offline
+      const local = await getBudgetFromIDB(month, year);
+      if (local) return local;
+
+      // IDB miss: first-ever open or a new month — fall back to server
+      // (server creates the budget row for new months)
+      return getBudgetForPeriod(month, year);
+    },
   });
 }
 
+// ─── Mutations ────────────────────────────────────────────────────────────────
+
 export function useUpdateBudgetTotal() {
   const qc = useQueryClient();
+  const enqueue = useEnqueue();
+
   return useMutation({
-    mutationFn: (vars: {
+    mutationFn: async ({
+      budgetId,
+      totalAmount,
+    }: {
       budgetId: string;
       totalAmount: number;
       month: number;
       year: number;
-    }) => updateBudgetTotal(vars.budgetId, vars.totalAmount),
+    }) => {
+      const db = getDB();
+      const now = new Date().toISOString();
+      await db.budgets.update(budgetId, {
+        total_budget: totalAmount,
+        updated_at: now,
+      });
+      await enqueue({
+        table: "budgets",
+        operation: "UPDATE",
+        recordId: budgetId,
+        payload: { budgetId, totalAmount },
+      });
+    },
     onSuccess: (_data, { month, year }) => {
       qc.invalidateQueries({ queryKey: budgetKey(month, year) });
       qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
@@ -40,8 +114,10 @@ export function useUpdateBudgetTotal() {
 
 export function useAddBudgetCategory() {
   const qc = useQueryClient();
+  const enqueue = useEnqueue();
+
   return useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       budgetId,
       name,
       type = "misc",
@@ -51,7 +127,34 @@ export function useAddBudgetCategory() {
       type?: "needs" | "wants" | "investments" | "misc";
       month: number;
       year: number;
-    }) => addBudgetCategory(budgetId, name, type),
+    }) => {
+      const db = getDB();
+      const tempId = `temp_${crypto.randomUUID()}`;
+      const now = new Date().toISOString();
+
+      // Optimistically write to IDB
+      await db.categories.add({
+        id: tempId,
+        budget_id: budgetId,
+        user_id: "__pending__",
+        name: name.trim(),
+        icon: null,
+        type,
+        allocated_amount: 0,
+        created_at: now,
+        updated_at: now,
+      });
+
+      await enqueue({
+        table: "categories",
+        operation: "INSERT",
+        recordId: tempId,
+        tempId,
+        payload: { budgetId, name: name.trim(), type },
+      });
+
+      return { id: tempId };
+    },
     onSuccess: (_data, { month, year }) => {
       qc.invalidateQueries({ queryKey: budgetKey(month, year) });
       qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
@@ -61,8 +164,10 @@ export function useAddBudgetCategory() {
 
 export function useUpdateCategoryAllocation() {
   const qc = useQueryClient();
+  const enqueue = useEnqueue();
+
   return useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       categoryId,
       allocatedAmount,
     }: {
@@ -70,7 +175,19 @@ export function useUpdateCategoryAllocation() {
       allocatedAmount: number;
       month: number;
       year: number;
-    }) => updateCategoryAllocation(categoryId, allocatedAmount),
+    }) => {
+      const db = getDB();
+      await db.categories.update(categoryId, {
+        allocated_amount: allocatedAmount,
+        updated_at: new Date().toISOString(),
+      });
+      await enqueue({
+        table: "categories",
+        operation: "UPDATE",
+        recordId: categoryId,
+        payload: { categoryId, updates: { allocated_amount: allocatedAmount } },
+      });
+    },
     onSuccess: (_data, { month, year }) => {
       qc.invalidateQueries({ queryKey: budgetKey(month, year) });
     },
@@ -79,8 +196,10 @@ export function useUpdateCategoryAllocation() {
 
 export function useUpdateCategoryIcon() {
   const qc = useQueryClient();
+  const enqueue = useEnqueue();
+
   return useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       categoryId,
       icon,
     }: {
@@ -88,7 +207,19 @@ export function useUpdateCategoryIcon() {
       icon: string;
       month: number;
       year: number;
-    }) => updateCategoryIcon(categoryId, icon),
+    }) => {
+      const db = getDB();
+      await db.categories.update(categoryId, {
+        icon,
+        updated_at: new Date().toISOString(),
+      });
+      await enqueue({
+        table: "categories",
+        operation: "UPDATE",
+        recordId: categoryId,
+        payload: { categoryId, updates: { icon } },
+      });
+    },
     onSuccess: (_data, { month, year }) => {
       qc.invalidateQueries({ queryKey: budgetKey(month, year) });
     },
@@ -97,18 +228,46 @@ export function useUpdateCategoryIcon() {
 
 export function useAddBudgetItem() {
   const qc = useQueryClient();
+  const enqueue = useEnqueue();
+
   return useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       categoryId,
       name,
-      planned,
+      planned = 0,
     }: {
       categoryId: string;
       name: string;
       planned?: number;
       month: number;
       year: number;
-    }) => addBudgetItem(categoryId, name, planned),
+    }) => {
+      const db = getDB();
+      const tempId = `temp_${crypto.randomUUID()}`;
+      const now = new Date().toISOString();
+
+      await db.budget_items.add({
+        id: tempId,
+        category_id: categoryId,
+        user_id: "__pending__",
+        name: name.trim(),
+        planned_amount: planned ?? 0,
+        actual_amount: 0,
+        is_completed: false,
+        created_at: now,
+        updated_at: now,
+      });
+
+      await enqueue({
+        table: "budget_items",
+        operation: "INSERT",
+        recordId: tempId,
+        tempId,
+        payload: { categoryId, name: name.trim(), planned: planned ?? 0 },
+      });
+
+      return { id: tempId };
+    },
     onSuccess: (_data, { month, year }) => {
       qc.invalidateQueries({ queryKey: budgetKey(month, year) });
     },
@@ -117,8 +276,10 @@ export function useAddBudgetItem() {
 
 export function useUpdateBudgetItem() {
   const qc = useQueryClient();
+  const enqueue = useEnqueue();
+
   return useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       itemId,
       updates,
     }: {
@@ -131,7 +292,19 @@ export function useUpdateBudgetItem() {
       };
       month: number;
       year: number;
-    }) => updateBudgetItem(itemId, updates),
+    }) => {
+      const db = getDB();
+      await db.budget_items.update(itemId, {
+        ...updates,
+        updated_at: new Date().toISOString(),
+      });
+      await enqueue({
+        table: "budget_items",
+        operation: "UPDATE",
+        recordId: itemId,
+        payload: { itemId, updates },
+      });
+    },
     onSuccess: (_data, { month, year }) => {
       qc.invalidateQueries({ queryKey: budgetKey(month, year) });
       qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
@@ -141,14 +314,25 @@ export function useUpdateBudgetItem() {
 
 export function useDeleteBudgetItem() {
   const qc = useQueryClient();
+  const enqueue = useEnqueue();
+
   return useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       itemId,
     }: {
       itemId: string;
       month: number;
       year: number;
-    }) => deleteBudgetItem(itemId),
+    }) => {
+      const db = getDB();
+      await db.budget_items.delete(itemId);
+      await enqueue({
+        table: "budget_items",
+        operation: "DELETE",
+        recordId: itemId,
+        payload: { itemId },
+      });
+    },
     onSuccess: (_data, { month, year }) => {
       qc.invalidateQueries({ queryKey: budgetKey(month, year) });
       qc.invalidateQueries({ queryKey: DASHBOARD_KEY });

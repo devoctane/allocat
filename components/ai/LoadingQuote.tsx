@@ -15,6 +15,29 @@ const QUOTES = [
   "\"Money is a terrible master but an excellent servant.\" — P.T. Barnum",
   "\"Wealth consists not in having great possessions, but in having few wants.\" — Epictetus",
   "\"Compound interest is the eighth wonder of the world.\" — Albert Einstein",
+  "\"Wealth isn't about how much you make — it's about how much you keep.\"",
+  "\"Money doesn't change people — it reveals their discipline.\"",
+  "\"To grow financially, you must outgrow your limiting beliefs.\"",
+  "\"Wealth is a result of consistent choices, not random luck.\"",
+  "\"The mindset that fears risk will never unlock freedom.\"",
+  "\"Don't chase money — chase the value that creates it.\"",
+  "\"Wealth begins where excuses end.\"",
+  "\"If you would be wealthy, think of saving as well as getting.\" — Benjamin Franklin",
+  "\"Money grows on the tree of persistence.\" — Japanese proverb",
+  "\"Every dollar saved is a seed for future growth.\"",
+  "\"Freedom is earned by those who set financial goals and stick to them.\"",
+  "\"If you're saving, you're succeeding.\" — Steve Burkholder",
+  "\"Annual income twenty pounds, annual expenditure nineteen six, result happiness.\" — Charles Dickens",
+  "\"Hustle turns dreams into deposits.\"",
+  "\"Success doesn't respond to wishes — only to action and focus.\"",
+  "\"The hustle is hard now so freedom can be easy later.\"",
+  "\"The single most powerful asset we all have is our mind. If it is trained well, it can create enormous wealth.\" — Robert Kiyosaki",
+  "\"Money is only a tool. It will take you wherever you wish, but it will not replace you as the driver.\" — Ayn Rand",
+  "\"Formal education will make you a living; self-education will make you a fortune.\" — Jim Rohn",
+  "\"The bitterness of poor quality remains long after the sweetness of low price is forgotten.\" — Benjamin Franklin",
+  "\"Budgeting your money is the key to having enough.\" — Elizabeth Warren",
+  "\"It’s not your salary that makes you rich, it’s your spending habits.\" — Charles A. Jaffe",
+  "\"Price is what you pay. Value is what you get.\" — Warren Buffett",
 ];
 
 function getRandom(exclude?: string): string {
@@ -29,7 +52,7 @@ export default function LoadingQuote() {
   useEffect(() => {
     const id = setInterval(() => {
       setQuote((prev) => getRandom(prev));
-    }, 4000);
+    }, 6000);
     return () => clearInterval(id);
   }, []);
 

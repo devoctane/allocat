@@ -31,7 +31,7 @@ export async function getBudgetContext(): Promise<string> {
     .eq("year", year)
     .maybeSingle();
 
-  if (!budget) return `Budget (${monthName} ${year}): Not set yet.`;
+  if (!budget) return `=== BUDGET — ${monthName} ${year} ===\nNot set yet.`;
 
   const total = Number(budget.total_budget || 0);
   let totalSpent = 0;
@@ -51,7 +51,6 @@ export async function getBudgetContext(): Promise<string> {
     const overFlag = catSpent > catAllocated ? " [OVER BUDGET]" : "";
     const header = `  [${cat.type.toUpperCase()}] ${cat.name}: ${fmt(catAllocated)} allocated, ${fmt(catSpent)} spent${overFlag}`;
 
-    // Individual items inside this category
     const itemLines = items.length === 0
       ? ["    - (no items)"]
       : items.map((i: { name: string; planned_amount: number; actual_amount: number; is_completed: boolean }) => {
@@ -103,15 +102,16 @@ export async function getGoalsContext(): Promise<string> {
   return ["=== GOALS ===", ...lines].join("\n");
 }
 
-// ── Net Worth: assets + net worth history ─────────────────────────────────────
+// ── Net Worth: assets + receivables (lent) + liabilities (external/internal) ──
 
 export async function getNetWorthContext(): Promise<string> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  const [{ data: assets }, { data: snapshots }] = await Promise.all([
+  const [{ data: assets }, { data: debts }, { data: snapshots }] = await Promise.all([
     supabase.from("assets").select("*").eq("user_id", user.id).order("category"),
+    supabase.from("debts").select("*").eq("user_id", user.id).eq("is_closed", false),
     supabase
       .from("net_worth_snapshots")
       .select("net_worth, total_assets, total_liabilities, snapshot_date")
@@ -120,11 +120,29 @@ export async function getNetWorthContext(): Promise<string> {
       .limit(6),
   ]);
 
-  const totalAssets = (assets ?? []).reduce((s, a) => s + Number(a.value || 0), 0);
+  const totalPhysicalAssets = (assets ?? []).reduce((s, a) => s + Number(a.value || 0), 0);
+  
+  // Receivables (Money lent to others - technically an asset)
+  const totalReceivables = (debts ?? [])
+    .filter(d => d.type === "lent")
+    .reduce((s, d) => s + (Number(d.principal) - Number(d.total_paid)), 0);
+
+  // Liabilities (Money user owes to others)
+  const totalLiabilities = (debts ?? [])
+    .filter(d => d.type !== "lent")
+    .reduce((s, d) => s + (Number(d.principal) - Number(d.total_paid)), 0);
+
+  const totalAssets = totalPhysicalAssets + totalReceivables;
+  const currentNetWorth = totalAssets - totalLiabilities;
 
   const assetLines = (assets ?? []).length === 0
     ? ["  (no assets recorded)"]
     : (assets ?? []).map((a) => `  - ${a.name} [${a.category}]: ${fmt(Number(a.value))}`);
+
+  const receivableLines = (debts ?? []).filter(d => d.type === "lent").map(d => {
+    const remaining = Number(d.principal) - Number(d.total_paid);
+    return `  - ${d.name} (Lent): ${fmt(remaining)} owed to you`;
+  });
 
   const historyLines = (snapshots ?? []).length === 0
     ? ["  (no history yet)"]
@@ -133,24 +151,23 @@ export async function getNetWorthContext(): Promise<string> {
           `  - ${s.snapshot_date}: Net Worth ${fmt(Number(s.net_worth))} (Assets ${fmt(Number(s.total_assets))}, Liabilities ${fmt(Number(s.total_liabilities))})`
       );
 
-  const currentNetWorth = snapshots?.[0]
-    ? Number(snapshots[0].net_worth)
-    : totalAssets;
-
   return [
     "=== NET WORTH ===",
-    `Current Net Worth: ${fmt(currentNetWorth)}`,
-    `Total Assets: ${fmt(totalAssets)}`,
+    `Current Net Worth: ${fmt(currentNetWorth)} (Assets - Liabilities)`,
+    `Total Assets: ${fmt(totalAssets)} (Physical Assets + Receivables)`,
+    `Total Liabilities: ${fmt(totalLiabilities)}`,
     "",
-    "Assets:",
+    "Physical Assets:",
     ...assetLines,
+    receivableLines.length > 0 ? "\nReceivables (Money Owed to You):" : "",
+    ...receivableLines,
     "",
     "Net Worth History (last 6 snapshots):",
     ...historyLines,
   ].join("\n");
 }
 
-// ── Debts: active + closed ────────────────────────────────────────────────────
+// ── Debts: Distinguish between Liabilities and Receivables ───────────────────
 
 export async function getDebtsContext(): Promise<string> {
   const supabase = await createClient();
@@ -164,7 +181,11 @@ export async function getDebtsContext(): Promise<string> {
     .order("is_closed")
     .order("created_at");
 
-  const active = (debts ?? []).filter((d) => !d.is_closed);
+  // Liabilities: external or internal type
+  const activeLiabilities = (debts ?? []).filter((d) => !d.is_closed && d.type !== "lent");
+  // Receivables: lent type
+  const activeReceivables = (debts ?? []).filter((d) => !d.is_closed && d.type === "lent");
+  
   const closed = (debts ?? []).filter((d) => d.is_closed);
 
   const fmtDebt = (d: {
@@ -176,23 +197,23 @@ export async function getDebtsContext(): Promise<string> {
       ? Math.round((Number(d.total_paid) / Number(d.principal)) * 100)
       : 0;
     return [
-      `  - ${d.name} [${d.type}]`,
-      `    Principal: ${fmt(Number(d.principal))} | Paid: ${fmt(Number(d.total_paid))} | Remaining: ${fmt(remaining)} (${pct}% paid)`,
-      `    Interest: ${d.interest_rate}% | Monthly minimum: ${fmt(Number(d.monthly_minimum))}`,
-      d.expected_payoff_date ? `    Expected payoff: ${d.expected_payoff_date}` : "",
+      `  - ${d.name} [${d.type.toUpperCase()}]`,
+      `    Principal: ${fmt(Number(d.principal))} | Paid: ${fmt(Number(d.total_paid))} | Remaining: ${fmt(remaining)} (${pct}% ${d.type === 'lent' ? 'recovered' : 'paid'})`,
+      d.type !== 'lent' ? `    Interest: ${d.interest_rate}% | Monthly minimum: ${fmt(Number(d.monthly_minimum))}` : null,
+      d.expected_payoff_date ? `    Expected ${d.type === 'lent' ? 'recovery' : 'payoff'}: ${d.expected_payoff_date}` : "",
     ].filter(Boolean).join("\n");
   };
 
-  const activeLines = active.length === 0 ? ["  (none)"] : active.map(fmtDebt);
-  const closedLines = closed.length === 0 ? ["  (none)"] : closed.map(fmtDebt);
-
   return [
-    "=== DEBTS ===",
-    "Active Debts:",
-    ...activeLines,
+    "=== DEBTS & RECEIVABLES ===",
+    "Active Debts (Liabilities - You owe):",
+    ...(activeLiabilities.length === 0 ? ["  (none)"] : activeLiabilities.map(fmtDebt)),
     "",
-    "Closed/Paid Debts:",
-    ...closedLines,
+    "Money Owed to You (Receivables - Lent to others):",
+    ...(activeReceivables.length === 0 ? ["  (none)"] : activeReceivables.map(fmtDebt)),
+    "",
+    "Closed/Settled Items:",
+    ...(closed.length === 0 ? ["  (none)"] : closed.map(fmtDebt)),
   ].join("\n");
 }
 

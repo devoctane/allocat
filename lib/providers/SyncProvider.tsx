@@ -1,0 +1,119 @@
+"use client";
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { SyncEngine } from "@/lib/sync/SyncEngine";
+import { hydrateAllTables } from "@/lib/db/hydrate";
+import type { SyncQueueItem } from "@/lib/db";
+
+interface SyncContextValue {
+  pendingCount: number;
+  isOnline: boolean;
+  isHydrated: boolean;
+  engine: SyncEngine | null;
+}
+
+const SyncContext = createContext<SyncContextValue>({
+  pendingCount: 0,
+  isOnline: true,
+  isHydrated: false,
+  engine: null,
+});
+
+export function SyncProvider({ children }: { children: React.ReactNode }) {
+  const [pendingCount, setPendingCount] = useState(0);
+  const [isOnline, setIsOnline] = useState(() =>
+    typeof window !== "undefined" ? navigator.onLine : true
+  );
+  const [isHydrated, setIsHydrated] = useState(false);
+  const qc = useQueryClient();
+
+  // Engine is created once — no callbacks yet (registered in the effect below)
+  const [engine] = useState(() => new SyncEngine());
+
+  const handleRollback = useCallback(
+    (item: SyncQueueItem, error: string) => {
+      if (
+        item.table === "budget_items" ||
+        item.table === "categories" ||
+        item.table === "budgets"
+      ) {
+        qc.invalidateQueries({ queryKey: ["budget"] });
+        qc.invalidateQueries({ queryKey: ["categoryData"] });
+      }
+      if (item.table === "goals" || item.table === "budgets") {
+        qc.invalidateQueries({ queryKey: ["dashboard"] });
+      }
+      if (item.table === "assets" || item.table === "debts") {
+        qc.invalidateQueries({ queryKey: ["net-worth"] });
+        qc.invalidateQueries({ queryKey: ["dashboard"] });
+      }
+      if (item.table === "debts") {
+        qc.invalidateQueries({ queryKey: ["debt"] });
+      }
+      // TODO: surface a toast with `error`
+      console.error("[SyncEngine] Permanent failure — rolled back", {
+        table: item.table,
+        operation: item.operation,
+        error,
+      });
+    },
+    [qc]
+  );
+
+  // Register callbacks in an effect (safe — never during render)
+  useEffect(() => {
+    engine.setCallbacks({
+      onPendingChange: setPendingCount,
+      onRollback: handleRollback,
+    });
+    return () => engine.setCallbacks({});
+  }, [engine, setPendingCount, handleRollback]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    hydrateAllTables()
+      .then(async () => {
+        if (!mounted) return;
+        setIsHydrated(true);
+        engine.start();
+        const count = await engine.getPendingCount();
+        if (mounted) setPendingCount(count);
+      })
+      .catch((err) => {
+        console.warn("[SyncProvider] Hydration failed (offline?):", err);
+        if (!mounted) return;
+        setIsHydrated(true);
+        engine.start();
+      });
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      mounted = false;
+      engine.stop();
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [engine]);
+
+  return (
+    <SyncContext.Provider value={{ pendingCount, isOnline, isHydrated, engine }}>
+      {children}
+    </SyncContext.Provider>
+  );
+}
+
+export function useSyncContext() {
+  return useContext(SyncContext);
+}

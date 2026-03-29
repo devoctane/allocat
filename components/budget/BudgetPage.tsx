@@ -116,14 +116,16 @@ export default function BudgetPage({ data, defaultMonth, defaultYear }: BudgetPa
     }
   }
 
-  const addCategoryError =
-    addCategoryMutation.error instanceof Error
+  const addCategoryError = addCategoryMutation.isError
+    ? addCategoryMutation.error instanceof Error
       ? addCategoryMutation.error.message
-      : "Couldn't create the category right now.";
-  const budgetTotalError =
-    updateBudgetTotalMutation.error instanceof Error
+      : "Couldn't create the category right now."
+    : null;
+  const budgetTotalError = updateBudgetTotalMutation.isError
+    ? updateBudgetTotalMutation.error instanceof Error
       ? updateBudgetTotalMutation.error.message
-      : "Couldn't update the total budget right now.";
+      : "Couldn't update the total budget right now."
+    : null;
 
   return (
     <>

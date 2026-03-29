@@ -13,13 +13,14 @@ export default function QueryProvider({
       new QueryClient({
         defaultOptions: {
           queries: {
-            // Data is considered fresh for 5 minutes
-            staleTime: 5 * 60 * 1000,
+            // IDB is the source of truth — React Query acts as in-memory cache on top.
+            // Staleness is managed by IDB sync_meta timestamps, not by these timers.
+            staleTime: Infinity,
             // Keep cached data for 10 minutes after component unmounts
             gcTime: 10 * 60 * 1000,
-            // Don't refetch when window regains focus (avoids jarring re-renders)
+            // No refetch on focus — IDB invalidation handles freshness
             refetchOnWindowFocus: false,
-            // Retry once on failure
+            // Retry once on network failure
             retry: 1,
           },
         },

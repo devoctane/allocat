@@ -12,7 +12,7 @@ export function detectTopic(message: string): FinanceTopic[] {
     topics.push("goals");
   if (/net worth|asset|wealth|property|investment|liquid/.test(m))
     topics.push("networth");
-  if (/debt|loan|owe|borrow|interest|payoff|liability|repay/.test(m))
+  if (/debt|loan|owe|borrow|interest|payoff|liability|repay|lent|friend|owe me/.test(m))
     topics.push("debts");
 
   if (topics.length === 0) topics.push("all");
