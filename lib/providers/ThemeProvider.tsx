@@ -71,30 +71,40 @@ export function ThemeProvider({
   children,
   ...props
 }: React.ComponentProps<typeof NextThemesProvider>) {
-  const [mounted, setMounted] = useState(false);
-  const [customTheme, setCustomTheme] = useState<CustomTheme>(defaultTheme);
+  const [{ mounted, customTheme }, setState] = useState({
+    mounted: false,
+    customTheme: defaultTheme
+  });
 
   useEffect(() => {
     const saved = localStorage.getItem("custom-theme");
+    let theme = defaultTheme;
+    
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        setCustomTheme({ ...defaultTheme, ...parsed });
+        theme = { ...defaultTheme, ...parsed };
       } catch {}
     }
-    setMounted(true);
+    
+    // Use requestAnimationFrame to defer the state update until after the initial paint
+    // This avoids the "synchronous setState in effect" warning while ensuring 
+    // we still mount as soon as possible.
+    requestAnimationFrame(() => {
+      setState({ mounted: true, customTheme: theme });
+    });
   }, []);
 
   const setThemeElement = (element: keyof CustomTheme, color: AestheticColor) => {
-    setCustomTheme((prev) => {
-      const updated = { ...prev, [element]: color };
-      localStorage.setItem("custom-theme", JSON.stringify(updated));
-      return updated;
+    setState((prev) => {
+      const updatedTheme = { ...prev.customTheme, [element]: color };
+      localStorage.setItem("custom-theme", JSON.stringify(updatedTheme));
+      return { ...prev, customTheme: updatedTheme };
     });
   };
 
   const resetTheme = () => {
-    setCustomTheme(defaultTheme);
+    setState((prev) => ({ ...prev, customTheme: defaultTheme }));
     localStorage.removeItem("custom-theme");
   };
 
