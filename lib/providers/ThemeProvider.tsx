@@ -108,14 +108,10 @@ export function ThemeProvider({
     localStorage.removeItem("custom-theme");
   };
 
-  if (!mounted) {
-    return <>{children}</>;
-  }
-
   return (
     <NextThemesProvider {...props}>
       <CustomThemeContext.Provider value={{ customTheme, setThemeElement, resetTheme }}>
-        <ThemeInjector customTheme={customTheme} />
+        {mounted && <ThemeInjector customTheme={customTheme} />}
         {children}
       </CustomThemeContext.Provider>
     </NextThemesProvider>
