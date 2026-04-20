@@ -10,7 +10,7 @@ export function budgetKey(month: number, year: number) {
 
 // ─── IDB read helper ──────────────────────────────────────────────────────────
 
-async function getBudgetFromIDB(month: number, year: number) {
+export async function getBudgetFromIDB(month: number, year: number) {
   const db = getDB();
 
   const budget = await db.budgets

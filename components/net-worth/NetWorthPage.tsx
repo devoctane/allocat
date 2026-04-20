@@ -45,29 +45,73 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
-function DonutChart({ pct }: { pct: number }) {
-  const r = 60;
+function PieChart({ assets, totalAssets }: { assets: Asset[], totalAssets: number }) {
+  const r = 40;
   const circ = 2 * Math.PI * r;
-  const dash = (pct / 100) * circ;
+  const gap = totalAssets > 0 && assets.filter(a => a.value > 0).length > 1 ? 1.5 : 0;
+
+  const sortedAssets = [...assets].filter(a => a.value > 0).sort((a, b) => b.value - a.value);
+
+  const STYLES = [
+    { stroke: "stroke-foreground opacity-100", bg: "bg-foreground opacity-100" },
+    { stroke: "stroke-foreground opacity-80", bg: "bg-foreground opacity-80" },
+    { stroke: "stroke-foreground opacity-60", bg: "bg-foreground opacity-60" },
+    { stroke: "stroke-foreground opacity-40", bg: "bg-foreground opacity-40" },
+    { stroke: "stroke-foreground opacity-20", bg: "bg-foreground opacity-20" },
+  ];
+
+  let currentOffset = 0;
+
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-center w-full">
       <div className="relative w-44 h-44 flex items-center justify-center">
         <svg viewBox="0 0 160 160" className="w-full h-full -rotate-90">
-          <circle cx="80" cy="80" r={r} fill="none" className="stroke-muted" strokeWidth="14" />
-          <circle
-            cx="80" cy="80" r={r}
-            fill="none"
-            className="stroke-primary"
-            strokeWidth="14"
-            strokeDasharray={`${dash} ${circ}`}
-            strokeLinecap="round"
-          />
+          <circle cx="80" cy="80" r={r} fill="none" className="stroke-muted/20" strokeWidth="80" />
+          {totalAssets > 0 && sortedAssets.map((asset, i) => {
+            const pct = asset.value / totalAssets;
+            const dash = Math.max((pct * circ) - gap, 0);
+            const strokeDasharray = `${dash} ${circ}`;
+            const strokeDashoffset = -currentOffset;
+            
+            currentOffset += (pct * circ);
+            
+            const style = STYLES[i % STYLES.length];
+
+            return (
+              <circle
+                key={asset.id}
+                cx="80" cy="80" r={r}
+                fill="none"
+                className={style.stroke}
+                strokeWidth="80"
+                strokeDasharray={strokeDasharray}
+                strokeDashoffset={strokeDashoffset}
+                strokeLinecap="butt"
+              />
+            );
+          })}
         </svg>
-        <div className="absolute text-center">
-          <span className="block text-2xl font-bold text-foreground">{pct}%</span>
-          <span className="text-[10px] text-muted-foreground uppercase">Cash &amp; Investments</span>
-        </div>
       </div>
+
+      {sortedAssets.length > 0 && (
+        <div className="w-full mt-6 space-y-2.5 px-2">
+          {sortedAssets.map((asset, i) => {
+            const pct = totalAssets > 0 ? ((asset.value / totalAssets) * 100).toFixed(1).replace(/\.0$/, '') : "0";
+            const style = STYLES[i % STYLES.length];
+            return (
+              <div key={asset.id} className="flex items-center justify-between text-xs w-full">
+                <div className="flex items-center gap-2 flex-1 min-w-0 pr-3">
+                  <div className={`w-3 h-3 shrink-0 rounded-[3px] ${style.bg}`} />
+                  <span className="text-muted-foreground truncate uppercase tracking-wider text-[10px] font-medium">
+                    {asset.name}
+                  </span>
+                </div>
+                <span className="font-semibold tabular-nums text-foreground shrink-0">{pct}%</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -87,10 +131,6 @@ export default function NetWorthPage({ data }: { data: NetWorthData }) {
   const assets = data.assets;
   const totalAssets = assets.reduce((s, a) => s + a.value, 0);
   const netWorth = totalAssets - data.totalLiabilities;
-  const cashAndInvestments = assets
-    .filter((a) => a.category === "liquid_cash" || a.category === "investments")
-    .reduce((s, a) => s + a.value, 0);
-  const pct = totalAssets > 0 ? Math.round((cashAndInvestments / totalAssets) * 100) : 0;
 
   function handleAddAsset() {
     const val = parseFloat(newAsset.value);
@@ -209,7 +249,7 @@ export default function NetWorthPage({ data }: { data: NetWorthData }) {
                 <section className="space-y-4">
                   <h3 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Asset Distribution</h3>
                   <div className="bg-card p-6 rounded-xl border border-border flex justify-center">
-                    <DonutChart pct={pct} />
+                    <PieChart assets={assets} totalAssets={totalAssets} />
                   </div>
                 </section>
               </div>

@@ -9,7 +9,7 @@ export const DEBT_KEY = ["debt"] as const;
 
 // ─── IDB read helper ──────────────────────────────────────────────────────────
 
-async function getDebtFromIDB() {
+export async function getDebtFromIDB() {
   const db = getDB();
   const debts = await db.debts.orderBy("created_at").toArray();
   if (debts.length === 0) return null;

@@ -20,7 +20,7 @@ export default function SuggestedPrompts({ onSelect }: SuggestedPromptsProps) {
     <div className="px-4 pb-2">
       <div className="mb-5 text-center">
         <PawLogo size={56} className="mx-auto mb-3 h-14 w-14" />
-        <p className="text-base font-semibold text-foreground">Hey! I&apos;m AlloCat 👋</p>
+        <p className="text-base font-semibold text-foreground">Hey! I&apos;m AlloCat 🐈</p>
         <p className="mt-1 text-sm text-(--muted-foreground,#666)">
           Your personal finance buddy. Ask me anything about your money!
         </p>

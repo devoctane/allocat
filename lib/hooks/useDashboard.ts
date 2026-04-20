@@ -8,7 +8,7 @@ export const DASHBOARD_KEY = ["dashboard"] as const;
 
 // ─── IDB read helper ──────────────────────────────────────────────────────────
 
-async function getDashboardFromIDB() {
+export async function getDashboardFromIDB() {
   const db = getDB();
 
   const now = new Date();

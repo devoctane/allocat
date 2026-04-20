@@ -10,6 +10,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { SyncEngine } from "@/lib/sync/SyncEngine";
 import { hydrateAllTables } from "@/lib/db/hydrate";
+import { prefetchAllQueries } from "@/lib/db/prefetch";
 import type { SyncQueueItem } from "@/lib/db";
 
 interface SyncContextValue {
@@ -82,6 +83,9 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     hydrateAllTables()
       .then(async () => {
         if (!mounted) return;
+        // Warm all page queries before marking hydration done —
+        // pages render instantly with no skeletons on first navigation.
+        await prefetchAllQueries(qc);
         setIsHydrated(true);
         engine.start();
         const count = await engine.getPendingCount();

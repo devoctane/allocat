@@ -8,7 +8,7 @@ export const NET_WORTH_KEY = ["net-worth"] as const;
 
 // ─── IDB read helper ──────────────────────────────────────────────────────────
 
-async function getNetWorthFromIDB() {
+export async function getNetWorthFromIDB() {
   const db = getDB();
   const assets = await db.assets.orderBy("created_at").toArray();
   // Return null if no data to force server fallback on first load

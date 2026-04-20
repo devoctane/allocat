@@ -1,25 +1,38 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { MaterialSymbol } from "@/components/ui/MaterialSymbol";
 import { markUserAsOnboarded } from "@/lib/actions/profile";
 import { useHaptic } from "@/lib/hooks/useHaptic";
+import { useQueryClient } from "@tanstack/react-query";
+import { DASHBOARD_KEY } from "@/lib/hooks/useDashboard";
+import { getDashboardData } from "@/lib/actions/dashboard";
 
 export default function OnboardingFlow() {
   const [step, setStep] = useState(1);
-  const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const haptic = useHaptic();
+  const qc = useQueryClient();
+ 
+  // Prefetch dashboard for instant navigation
+  useEffect(() => {
+    if (step === 3) {
+      router.prefetch("/dashboard");
+      // Prewarm the dashboard data cache
+      qc.prefetchQuery({
+        queryKey: DASHBOARD_KEY,
+        queryFn: () => getDashboardData(),
+      });
+    }
+  }, [step, router, qc]);
 
   const handleComplete = () => {
     haptic.success();
-    startTransition(async () => {
-      const res = await markUserAsOnboarded();
-      if (!res.error) {
-        router.push("/dashboard");
-      }
-    });
+    // Navigate immediately for instant feel
+    markUserAsOnboarded();
+    router.push("/dashboard");
+    // Fire the server action in the background
   };
 
   return (
@@ -46,7 +59,7 @@ export default function OnboardingFlow() {
               <p className="font-label text-xs uppercase tracking-[0.2em] text-gray-500">System.v.01</p>
             </div>
           </div>
-              <img src="/paw-white.png" alt="logo" className="w-12 h-12 p-1 bg-white rounded-full" />
+              <img src="/allocat-logo.png" alt="logo" className="w-12 h-12 p-1 bg-white rounded-full" />
 
           <div className="max-w-5xl mt-12 md:mt-0">
             <div className="flex flex-col gap-8">
