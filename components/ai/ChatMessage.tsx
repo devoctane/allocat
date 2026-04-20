@@ -2,6 +2,7 @@
 
 import ReactMarkdown from "react-markdown";
 import LoadingQuote from "./LoadingQuote";
+import PawLogo from "./PawLogo";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
@@ -15,9 +16,7 @@ export default function ChatMessage({ role, content, isStreaming }: ChatMessageP
   return (
     <div className={`flex w-full ${isUser ? "justify-end" : "justify-start"} mb-3`}>
       {!isUser && (
-        <div className="mr-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground text-background text-xs font-bold self-end mb-0.5">
-          AC
-        </div>
+        <PawLogo size={28} className="mr-2 h-7 w-7 self-end mb-0.5" />
       )}
       <div
         className={[

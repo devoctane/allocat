@@ -1,5 +1,7 @@
 "use client";
 
+import PawLogo from "./PawLogo";
+
 const SUGGESTED_PROMPTS = [
   "How is my budget looking this month? 📊",
   "Which category am I overspending in?",
@@ -17,9 +19,7 @@ export default function SuggestedPrompts({ onSelect }: SuggestedPromptsProps) {
   return (
     <div className="px-4 pb-2">
       <div className="mb-5 text-center">
-        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-foreground text-background text-lg font-bold">
-          AC
-        </div>
+        <PawLogo size={56} className="mx-auto mb-3 h-14 w-14" />
         <p className="text-base font-semibold text-foreground">Hey! I&apos;m AlloCat 👋</p>
         <p className="mt-1 text-sm text-(--muted-foreground,#666)">
           Your personal finance buddy. Ask me anything about your money!

@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect, useCallback } from "react";
 import { Drawer } from "vaul";
+import PawLogo from "./PawLogo";
 import ChatMessage from "./ChatMessage";
 import ChatInput from "./ChatInput";
 import SuggestedPrompts from "./SuggestedPrompts";
@@ -128,9 +129,7 @@ export default function ChatDrawer({ open, onClose }: ChatDrawerProps) {
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-background text-xs font-bold">
-                AC
-              </div>
+              <PawLogo size={32} className="h-8 w-8" />
               <div>
                 <Drawer.Title className="text-sm font-semibold text-foreground">
                   AlloCat AI

@@ -21,7 +21,7 @@ export default function EmojiPickerModal({ isOpen, onClose, onSelect }: EmojiPic
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-4 pb-20 animate-in fade-in duration-200">
       <div 
         className="bg-card w-full max-w-md rounded-t-2xl sm:rounded-2xl p-6 shadow-xl animate-in slide-in-from-bottom flex flex-col max-h-[80vh] border border-border"
         onClick={(e) => e.stopPropagation()}

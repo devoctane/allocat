@@ -1,0 +1,15 @@
+import Image from "next/image";
+
+interface PawLogoProps {
+  className?: string;
+  size?: number;
+  priority?: boolean;
+}
+
+export default function PawLogo({ className = "", size = 28, priority = false }: PawLogoProps) {
+  return (
+    <div className={`flex shrink-0 p-1 items-center justify-center overflow-hidden rounded-full bg-foreground text-background ${className}`}>
+      <Image priority={priority} src="/paw.png" alt="AlloCat" width={size} height={size} className="object-cover absolute -bottom-2" />
+    </div>
+  );
+}
