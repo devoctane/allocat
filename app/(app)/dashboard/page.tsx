@@ -4,6 +4,7 @@ import DashboardPage from "@/components/dashboard/DashboardPage";
 import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
 import Link from "next/link";
 import { useDashboardData } from "@/lib/hooks/useDashboard";
+import AIOverlay from "@/components/ai/AIOverlay";
 
 function DashboardSkeleton() {
   return (
@@ -61,9 +62,15 @@ export default function Dashboard() {
           </Link>
         </header>
         <DashboardEmptyState />
+        <AIOverlay />
       </div>
     );
   }
 
-  return <DashboardPage data={data} />;
+  return (
+    <>
+      <DashboardPage data={data} />
+      <AIOverlay />
+    </>
+  );
 }

@@ -383,165 +383,171 @@ function CategoryDetailContent({
         </button>
       </header>
 
-      {/* Summary Badges */}
-      <div className="px-4 mb-6 grid grid-cols-3 gap-3">
-        <div className="flex flex-col gap-1 p-4 border border-border rounded-lg bg-card text-foreground">
-          <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-            Allocated
-          </span>
-          <span className="text-base font-bold tabular-nums">
-            {formatNum(allocated)}
-          </span>
-          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-            Auto from items
-          </span>
-        </div>
-
-        {[
-          { label: "Used", value: used, highlight: false },
-          { label: "Left", value: left, highlight: true },
-        ].map(({ label, value, highlight }) => (
-          <div
-            key={label}
-            className={`flex flex-col gap-1 p-4 border border-border rounded-lg ${
-              highlight ? "bg-muted" : "bg-card"
-            }`}
-          >
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-              {label}
-            </span>
-            <span className="text-base font-bold tabular-nums text-foreground">
-              {formatNum(value)}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      <div className="px-4 mb-4 space-y-1">
-        <p className="text-[11px] tabular-nums text-muted-foreground">
-          Total budget {formatNum(data.totalBudget)} • Total allocated{" "}
-          {formatNum(totalAllocated)}
-        </p>
-        <p className="text-[11px] tabular-nums text-muted-foreground">
-          Category cap {formatNum(categoryBudgetCap)} • Other categories{" "}
-          {formatNum(data.otherAllocated)}
-        </p>
-        {data.totalBudget <= 0 ? (
-          <>
-            <p className="text-xs text-muted-foreground">
-              Set the Total Budget on the budget page before allocating item
-              amounts here.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                haptic.light();
-                router.back();
-              }}
-              className="inline-flex text-xs font-semibold text-primary underline underline-offset-4 decoration-primary/40"
-            >
-              Go back and set it
-            </button>
-          </>
-        ) : remainingBudgetCapacity < 0 ? (
-          <p className="text-xs text-red-400">
-            This budget is {formatNum(Math.abs(remainingBudgetCapacity))} over
-            the total budget cap.
-          </p>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            {formatNum(remainingBudgetCapacity)} still available before this
-            budget hits the top limit.
-          </p>
-        )}
-        {validationError ? (
-          <p className="text-xs text-red-400">{validationError}</p>
-        ) : null}
-      </div>
-
-      {/* Items Section Label */}
-      <div className="px-6 pb-2 flex justify-between items-end">
-        <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-          Items
-        </h2>
-        <span className="text-[10px] text-muted-foreground tabular-nums">
-          {items.length} total
-        </span>
-      </div>
-
-      {/* Item List */}
-      <div className="flex-1 px-4">
-        {items.map((item) => (
-          <div
-            key={item.id}
-            className="group flex gap-3 items-center justify-between py-4 border-b border-border"
-          >
-            <div className="flex flex-col gap-1 flex-1 min-w-0">
-              <span className="text-sm font-medium text-foreground truncate w-full">
-                <InlineEditableText
-                  value={item.name}
-                  onSave={(val) => handleUpdateItem(item.id, { name: val })}
-                  className="max-w-full text-foreground"
-                />
+      <div className="md:grid md:grid-cols-[1fr_1.5fr] md:gap-x-8 flex-1">
+        <div className="mb-6 md:mb-0 space-y-6">
+          {/* Summary Badges */}
+          <div className="px-4 grid grid-cols-3 gap-3">
+            <div className="flex flex-col gap-1 p-4 border border-border rounded-lg bg-card text-foreground">
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+                Allocated
               </span>
-              <div className="flex items-center gap-4 text-xs text-muted-foreground tabular-nums">
-                <span className="flex items-center gap-1">
-                  Allocated:{" "}
-                  <InlineEditableNumber
-                    value={item.planned}
-                    onSave={(val) =>
-                      handleUpdateItem(item.id, { planned: val })
-                    }
-                    className="text-xs text-foreground"
-                  />
+              <span className="text-base font-bold tabular-nums">
+                {formatNum(allocated)}
+              </span>
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Auto from items
+              </span>
+            </div>
+
+            {[
+              { label: "Used", value: used, highlight: false },
+              { label: "Left", value: left, highlight: true },
+            ].map(({ label, value, highlight }) => (
+              <div
+                key={label}
+                className={`flex flex-col gap-1 p-4 border border-border rounded-lg ${
+                  highlight ? "bg-muted" : "bg-card"
+                }`}
+              >
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
+                  {label}
                 </span>
-                <span className="flex items-center gap-1">
-                  Used:{" "}
-                  <InlineEditableNumber
-                    value={item.actual}
-                    onSave={(val) => handleUpdateItem(item.id, { actual: val })}
-                    className="text-xs text-foreground"
-                  />
+                <span className="text-base font-bold tabular-nums text-foreground">
+                  {formatNum(value)}
                 </span>
               </div>
-            </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <button
-                id={`delete-item-${item.id}`}
-                onClick={() => handleDeleteItem(item.id)}
-                className="opacity-100 text-muted-foreground hover:text-red-400 transition-colors"
-                title="Delete Item"
+            ))}
+          </div>
+
+          <div className="px-4 space-y-1">
+            <p className="text-[11px] tabular-nums text-muted-foreground">
+              Total budget {formatNum(data.totalBudget)} • Total allocated{" "}
+              {formatNum(totalAllocated)}
+            </p>
+            <p className="text-[11px] tabular-nums text-muted-foreground">
+              Category cap {formatNum(categoryBudgetCap)} • Other categories{" "}
+              {formatNum(data.otherAllocated)}
+            </p>
+            {data.totalBudget <= 0 ? (
+              <>
+                <p className="text-xs text-muted-foreground">
+                  Set the Total Budget on the budget page before allocating item
+                  amounts here.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    haptic.light();
+                    router.back();
+                  }}
+                  className="inline-flex text-xs font-semibold text-primary underline underline-offset-4 decoration-primary/40"
+                >
+                  Go back and set it
+                </button>
+              </>
+            ) : remainingBudgetCapacity < 0 ? (
+              <p className="text-xs text-red-400">
+                This budget is {formatNum(Math.abs(remainingBudgetCapacity))} over
+                the total budget cap.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {formatNum(remainingBudgetCapacity)} still available before this
+                budget hits the top limit.
+              </p>
+            )}
+            {validationError ? (
+              <p className="text-xs text-red-400">{validationError}</p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="flex flex-col flex-1">
+          {/* Items Section Label */}
+          <div className="px-6 pb-2 flex justify-between items-end">
+            <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Items
+            </h2>
+            <span className="text-[10px] text-muted-foreground tabular-nums">
+              {items.length} total
+            </span>
+          </div>
+
+          {/* Item List */}
+          <div className="flex-1 px-4">
+            {items.map((item) => (
+              <div
+                key={item.id}
+                className="group flex gap-3 items-center justify-between py-4 border-b border-border"
               >
-                <span className="material-symbols-outlined text-base">
-                  delete
+                <div className="flex flex-col gap-1 flex-1 min-w-0">
+                  <span className="text-sm font-medium text-foreground truncate w-full">
+                    <InlineEditableText
+                      value={item.name}
+                      onSave={(val) => handleUpdateItem(item.id, { name: val })}
+                      className="max-w-full text-foreground"
+                    />
+                  </span>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground tabular-nums">
+                    <span className="flex items-center gap-1">
+                      Allocated:{" "}
+                      <InlineEditableNumber
+                        value={item.planned}
+                        onSave={(val) =>
+                          handleUpdateItem(item.id, { planned: val })
+                        }
+                        className="text-xs text-foreground"
+                      />
+                    </span>
+                    <span className="flex items-center gap-1">
+                      Used:{" "}
+                      <InlineEditableNumber
+                        value={item.actual}
+                        onSave={(val) => handleUpdateItem(item.id, { actual: val })}
+                        className="text-xs text-foreground"
+                      />
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    id={`delete-item-${item.id}`}
+                    onClick={() => handleDeleteItem(item.id)}
+                    className="opacity-100 text-muted-foreground hover:text-red-400 transition-colors"
+                    title="Delete Item"
+                  >
+                    <span className="material-symbols-outlined text-base">
+                      delete
+                    </span>
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {/* Inline Add New Item */}
+            <div className="flex items-center justify-between py-4 border-b border-border">
+              <input
+                id="add-item-input"
+                type="text"
+                placeholder="Add new item..."
+                value={newItemName}
+                onChange={(e) => setNewItemName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAddItem();
+                }}
+                className="flex-1 bg-transparent border-none p-0 text-sm font-normal placeholder:text-muted-foreground text-foreground focus:outline-none focus:ring-0"
+              />
+              <button
+                id="add-item-confirm"
+                onClick={handleAddItem}
+                className="text-muted-foreground hover:text-primary transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">
+                  add_circle
                 </span>
               </button>
             </div>
           </div>
-        ))}
-
-        {/* Inline Add New Item */}
-        <div className="flex items-center justify-between py-4 border-b border-border">
-          <input
-            id="add-item-input"
-            type="text"
-            placeholder="Add new item..."
-            value={newItemName}
-            onChange={(e) => setNewItemName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleAddItem();
-            }}
-            className="flex-1 bg-transparent border-none p-0 text-sm font-normal placeholder:text-muted-foreground text-foreground focus:outline-none focus:ring-0"
-          />
-          <button
-            id="add-item-confirm"
-            onClick={handleAddItem}
-            className="text-muted-foreground hover:text-primary transition-colors"
-          >
-            <span className="material-symbols-outlined text-lg">
-              add_circle
-            </span>
-          </button>
         </div>
       </div>
 

@@ -213,233 +213,239 @@ export default function DebtPage({ data }: { data: Debt[] }) {
           </>
         ) : (
           <>
-            {/* Summary Cards */}
-            <div className="grid grid-cols-2 gap-3 mt-2">
-              {/* Total Outstanding */}
-              <div className="bg-card border border-border p-5 rounded-xl">
-                <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
-                  Total Outstanding
-                </p>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold tracking-tight tabular-nums text-foreground">
-                    {formatCurrency(totalOutstanding)}
-                  </span>
-                </div>
-              </div>
-              
-              {/* Total Lent out to friends */}
-              <div 
-                onClick={() => {
-                  haptic.light();
-                  setShowLentList(true);
-                }}
-                className="bg-card border border-border p-5 rounded-xl cursor-pointer hover:bg-muted/50 active:scale-95 transition-all text-left"
-              >
-                <div className="flex justify-between items-start">
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-emerald-500 mb-1">Money Out to Friends</p>
-                  <span className="material-symbols-outlined text-[14px] text-muted-foreground">arrow_forward_ios</span>
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold tracking-tight tabular-nums text-emerald-400">
-                    {formatCurrency(totalLent)}
-                  </span>
-                </div>
-              </div>
-              
-              {/* Interest Rate */}
-              <div className="bg-card border border-border p-4 rounded-xl">
-                <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Interest Rate</p>
-                <p className="text-xl font-semibold tracking-tight text-foreground">
-                  {avgInterest.toFixed(1)}%{" "}
-                  <span className="text-xs font-normal text-muted-foreground">Avg</span>
-                </p>
-              </div>
-              {/* Payoff Trend */}
-              <div className="bg-card border border-border p-4 rounded-xl">
-                <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Payoff Trend</p>
-                <div className="flex items-center gap-1">
-                  <span className="material-symbols-outlined text-sm text-foreground">trending_down</span>
-                  <p className="text-xl font-semibold tracking-tight text-foreground">2.4%</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Internal / External Toggle */}
-            <div className="mt-6">
-              <div className="flex p-1 bg-muted rounded-xl">
-                {(["internal", "external"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    id={`debt-tab-${tab}`}
+            <div className="md:grid md:grid-cols-[1fr_1.5fr] md:gap-x-8 mt-2">
+              <div className="space-y-6 mb-6 md:mb-0">
+                {/* Summary Cards */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Total Outstanding */}
+                  <div className="bg-card border border-border p-5 rounded-xl">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
+                      Total Outstanding
+                    </p>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-bold tracking-tight tabular-nums text-foreground">
+                        {formatCurrency(totalOutstanding)}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Total Lent out to friends */}
+                  <div 
                     onClick={() => {
                       haptic.light();
-                      setActiveTab(tab);
+                      setShowLentList(true);
                     }}
-                    className={`flex-1 py-2 text-sm font-medium rounded-lg capitalize transition-all ${
-                      activeTab === tab
-                        ? "bg-card text-foreground shadow-sm"
-                        : "text-muted-foreground"
-                    }`}
+                    className="bg-card border border-border p-5 rounded-xl cursor-pointer hover:bg-muted/50 active:scale-95 transition-all text-left"
                   >
-                    {tab}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Quick Payment */}
-            {activeDebts.length > 0 && (
-              <div className="mt-6">
-                <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-4">Quick Payment</h3>
-                <div className="bg-card border border-border p-4 rounded-xl flex flex-col gap-3">
-                  <BottomSheetSelect
-                    title="Select Debt"
-                    options={activeDebts.map((d) => ({
-                      value: d.id,
-                      label: d.name,
-                      description: formatCurrency(d.principal - d.totalPaid) + " remaining",
-                      icon: d.icon ?? undefined,
-                    }))}
-                    value={paymentDebtId}
-                    onChange={setPaymentDebtId}
-                  />
-                  <div className="flex gap-3">
-                    <div className="flex-1 relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">₹</span>
-                      <input
-                        id="quick-payment-input"
-                        type="number"
-                        min="0"
-                        placeholder="0.00"
-                        value={paymentAmount}
-                        onChange={(e) => setPaymentAmount(e.target.value)}
-                        className="w-full pl-7 pr-3 py-2.5 bg-background border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                      />
+                    <div className="flex justify-between items-start">
+                      <p className="text-[10px] font-medium uppercase tracking-wider text-emerald-500 mb-1">Money Out to Friends</p>
+                      <span className="material-symbols-outlined text-[14px] text-muted-foreground">arrow_forward_ios</span>
                     </div>
-                    <button
-                      id="pay-now-button"
-                      onClick={handleMakePayment}
-                      disabled={!paymentAmount || isNaN(parseFloat(paymentAmount)) || parseFloat(paymentAmount) <= 0}
-                      className="px-6 py-2.5 bg-primary text-primary-foreground text-sm font-semibold rounded-lg active:scale-95 disabled:opacity-50 disabled:pointer-events-none transition-all"
-                    >
-                      Pay Now
-                    </button>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-bold tracking-tight tabular-nums text-emerald-400">
+                        {formatCurrency(totalLent)}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Interest Rate */}
+                  <div className="bg-card border border-border p-4 rounded-xl">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Interest Rate</p>
+                    <p className="text-xl font-semibold tracking-tight text-foreground">
+                      {avgInterest.toFixed(1)}%{" "}
+                      <span className="text-xs font-normal text-muted-foreground">Avg</span>
+                    </p>
+                  </div>
+                  {/* Payoff Trend */}
+                  <div className="bg-card border border-border p-4 rounded-xl">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Payoff Trend</p>
+                    <div className="flex items-center gap-1">
+                      <span className="material-symbols-outlined text-sm text-foreground">trending_down</span>
+                      <p className="text-xl font-semibold tracking-tight text-foreground">2.4%</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
 
-            {/* Active Debts */}
-            <div className="mt-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Active Debts</h3>
-                <button
-                  id="add-debt-button"
-                  onClick={() => setShowAddForm(true)}
-                  className="text-[11px] font-bold text-foreground flex items-center gap-1 transition-transform active:scale-95"
-                >
-                  <span className="material-symbols-outlined text-sm">add</span>
-                  ADD NEW
-                </button>
-              </div>
-
-              {activeDebts.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-6">No {activeTab} debts recorded.</p>
-              )}
-
-              {activeDebts.map((debt) => {
-                const remaining = debt.principal - debt.totalPaid;
-                const paidPct = debt.principal > 0 ? Math.round((debt.totalPaid / debt.principal) * 100) : 0;
-                return (
-                  <div
-                    key={debt.id}
-                    className="group bg-card border border-border p-4 rounded-xl hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex items-start gap-2">
+                {/* Quick Payment */}
+                {activeDebts.length > 0 && (
+                  <div>
+                    <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-4">Quick Payment</h3>
+                    <div className="bg-card border border-border p-4 rounded-xl flex flex-col gap-3">
+                      <BottomSheetSelect
+                        title="Select Debt"
+                        options={activeDebts.map((d) => ({
+                          value: d.id,
+                          label: d.name,
+                          description: formatCurrency(d.principal - d.totalPaid) + " remaining",
+                          icon: d.icon ?? undefined,
+                        }))}
+                        value={paymentDebtId}
+                        onChange={setPaymentDebtId}
+                      />
+                      <div className="flex gap-3">
+                        <div className="flex-1 relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">₹</span>
+                          <input
+                            id="quick-payment-input"
+                            type="number"
+                            min="0"
+                            placeholder="0.00"
+                            value={paymentAmount}
+                            onChange={(e) => setPaymentAmount(e.target.value)}
+                            className="w-full pl-7 pr-3 py-2.5 bg-background border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+                        </div>
                         <button
-                          onClick={() => setPickerDebtId(debt.id)}
-                          className="flex items-center justify-center size-8 mt-0.5 rounded-full bg-muted hover:bg-muted/80 transition-colors text-lg shrink-0"
-                          title="Set Emoji"
+                          id="pay-now-button"
+                          onClick={handleMakePayment}
+                          disabled={!paymentAmount || isNaN(parseFloat(paymentAmount)) || parseFloat(paymentAmount) <= 0}
+                          className="px-6 py-2.5 bg-primary text-primary-foreground text-sm font-semibold rounded-lg active:scale-95 disabled:opacity-50 disabled:pointer-events-none transition-all"
                         >
-                          {debt.icon
-                            ? <span className="grayscale">{debt.icon}</span>
-                            : <span className="material-symbols-outlined text-sm text-muted-foreground">add_reaction</span>
-                          }
+                          Mark as Paid
                         </button>
-                        <div>
-                          <h4 className="font-bold text-base text-foreground">
-                            <InlineEditableText
-                              value={debt.name}
-                              onSave={(val) => handleUpdateDebt(debt.id, { name: val })}
-                            />
-                          </h4>
-                          <p className="text-xs flex items-center gap-1 text-muted-foreground mt-1">
-                            Int: <InlineEditableNumber value={debt.interestRate} onSave={(val) => handleUpdateDebt(debt.id, { interest_rate: val })} className="text-xs border-none" />% • Min: <InlineEditableNumber value={debt.monthlyMin} onSave={(val) => handleUpdateDebt(debt.id, { monthly_minimum: val })} formatAsCurrency={true} className="text-xs border-none" />
-                          </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-6">
+                {/* Internal / External Toggle */}
+                <div>
+                  <div className="flex p-1 bg-muted rounded-xl">
+                    {(["internal", "external"] as const).map((tab) => (
+                      <button
+                        key={tab}
+                        id={`debt-tab-${tab}`}
+                        onClick={() => {
+                          haptic.light();
+                          setActiveTab(tab);
+                        }}
+                        className={`flex-1 py-2 text-sm font-medium rounded-lg capitalize transition-all ${
+                          activeTab === tab
+                            ? "bg-card text-foreground shadow-sm"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {tab}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Active Debts */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Active Debts</h3>
+                    <button
+                      id="add-debt-button"
+                      onClick={() => setShowAddForm(true)}
+                      className="text-[11px] font-bold text-foreground flex items-center gap-1 transition-transform active:scale-95"
+                    >
+                      <span className="material-symbols-outlined text-sm">add</span>
+                      ADD NEW
+                    </button>
+                  </div>
+
+                  {activeDebts.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-6">No {activeTab} debts recorded.</p>
+                  )}
+
+                  {activeDebts.map((debt) => {
+                    const remaining = debt.principal - debt.totalPaid;
+                    const paidPct = debt.principal > 0 ? Math.round((debt.totalPaid / debt.principal) * 100) : 0;
+                    return (
+                      <div
+                        key={debt.id}
+                        className="group bg-card border border-border p-4 rounded-xl hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="flex items-start gap-2">
+                            <button
+                              onClick={() => setPickerDebtId(debt.id)}
+                              className="flex items-center justify-center size-8 mt-0.5 rounded-full bg-muted hover:bg-muted/80 transition-colors text-lg shrink-0"
+                              title="Set Emoji"
+                            >
+                              {debt.icon
+                                ? <span className="grayscale">{debt.icon}</span>
+                                : <span className="material-symbols-outlined text-sm text-muted-foreground">add_reaction</span>
+                              }
+                            </button>
+                            <div>
+                              <h4 className="font-bold text-base text-foreground">
+                                <InlineEditableText
+                                  value={debt.name}
+                                  onSave={(val) => handleUpdateDebt(debt.id, { name: val })}
+                                />
+                              </h4>
+                              <p className="text-xs flex items-center gap-1 text-muted-foreground mt-1">
+                                Int: <InlineEditableNumber value={debt.interestRate} onSave={(val) => handleUpdateDebt(debt.id, { interest_rate: val })} className="text-xs border-none" />% • Min: <InlineEditableNumber value={debt.monthlyMin} onSave={(val) => handleUpdateDebt(debt.id, { monthly_minimum: val })} formatAsCurrency={true} className="text-xs border-none" />
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-sm font-bold tabular-nums text-foreground">
+                              <InlineEditableNumber
+                                value={remaining}
+                                onSave={(val) => handleUpdateDebt(debt.id, { principal: val + debt.totalPaid })}
+                                formatAsCurrency={true}
+                              />
+                            </span>
+                            <button
+                              id={`delete-debt-${debt.id}`}
+                              onClick={() => handleDeleteDebt(debt.id)}
+                              className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-opacity"
+                              title="Delete Debt"
+                            >
+                              <span className="material-symbols-outlined text-base">delete</span>
+                            </button>
+                          </div>
+                        </div>
+                        <div className="w-full bg-muted h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className="bg-primary h-full rounded-full transition-all duration-300"
+                            style={{ width: `${paidPct}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between mt-2">
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-tighter">
+                            {paidPct}% PAID OFF
+                          </span>
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-tighter">
+                            REMAINING: {formatCurrency(remaining)}
+                          </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-sm font-bold tabular-nums text-foreground">
-                          <InlineEditableNumber
-                            value={remaining}
-                            onSave={(val) => handleUpdateDebt(debt.id, { principal: val + debt.totalPaid })}
-                            formatAsCurrency={true}
-                          />
-                        </span>
-                        <button
-                          id={`delete-debt-${debt.id}`}
-                          onClick={() => handleDeleteDebt(debt.id)}
-                          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-opacity"
-                          title="Delete Debt"
-                        >
-                          <span className="material-symbols-outlined text-base">delete</span>
-                        </button>
-                      </div>
-                    </div>
-                    <div className="w-full bg-muted h-1.5 rounded-full overflow-hidden">
-                      <div
-                        className="bg-primary h-full rounded-full transition-all duration-300"
-                        style={{ width: `${paidPct}%` }}
-                      />
-                    </div>
-                    <div className="flex justify-between mt-2">
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-tighter">
-                        {paidPct}% PAID OFF
-                      </span>
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-tighter">
-                        REMAINING: {formatCurrency(remaining)}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                    );
+                  })}
+                </div>
 
-            {/* Closed Debts */}
-            {closedDebts.length > 0 && (
-              <div className="mt-6 space-y-4">
-                <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Closed Debts</h3>
-                {closedDebts.map((debt) => (
-                  <div key={debt.id} className="bg-card/50 border border-border p-4 rounded-xl opacity-50 relative group">
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-bold text-sm text-foreground">{debt.name}</h4>
-                      <div className="flex items-center gap-3">
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase">Paid Off</span>
-                        <button
-                          id={`delete-debt-closed-${debt.id}`}
-                          onClick={() => handleDeleteDebt(debt.id)}
-                          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-opacity"
-                          title="Delete Record"
-                        >
-                          <span className="material-symbols-outlined text-base">delete</span>
-                        </button>
+                {/* Closed Debts */}
+                {closedDebts.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Closed Debts</h3>
+                    {closedDebts.map((debt) => (
+                      <div key={debt.id} className="bg-card/50 border border-border p-4 rounded-xl opacity-50 relative group">
+                        <div className="flex justify-between items-center">
+                          <h4 className="font-bold text-sm text-foreground">{debt.name}</h4>
+                          <div className="flex items-center gap-3">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase">Paid Off</span>
+                            <button
+                              id={`delete-debt-closed-${debt.id}`}
+                              onClick={() => handleDeleteDebt(debt.id)}
+                              className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-opacity"
+                              title="Delete Record"
+                            >
+                              <span className="material-symbols-outlined text-base">delete</span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
-            )}
+            </div>
 
             {/* Add Debt Form (if showing while debts exist) */}
             {showAddForm && (

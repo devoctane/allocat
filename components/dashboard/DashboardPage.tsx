@@ -147,220 +147,228 @@ export default function DashboardPage({ data }: DashboardProps) {
   return (
     <div className="transition-opacity">
       {/* Header */}
-      <header className="flex items-center justify-between px-6 pt-10 pb-4">
-        <h1 className="text-xl font-bold tracking-tight text-foreground">AlloCat</h1>
-        <Link
-          href="/profile"
-          className="flex items-center justify-center size-10 rounded-full bg-muted text-foreground"
-        >
-          <span className="material-symbols-outlined text-[22px]">account_circle</span>
-        </Link>
+      <header className="flex items-center justify-between px-6 pt-10 pb-4 md:pt-12 md:pb-8">
+        <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground">Dashboard</h1>
+        <div className="md:hidden">
+          <Link
+            href="/profile"
+            className="flex items-center justify-center size-10 rounded-full bg-muted text-foreground"
+          >
+            <span className="material-symbols-outlined text-[22px]">account_circle</span>
+          </Link>
+        </div>
       </header>
 
-      {/* Budget Card */}
-      <section className="px-4 mb-6">
-        <div className="bg-card rounded-xl p-6 border border-border relative">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
-            Total Budget
-          </p>
-          <div className="flex gap-2 mb-4">
-            <h2 className="text-4xl font-bold tabular-nums tracking-tight text-foreground inline-flex">
-              {data.budget ? (
-                <InlineEditableNumber
-                  value={data.budget.totalBudget}
-                  onSave={handleUpdateBudget}
-                  formatAsCurrency={true}
-                />
-              ) : (
-                formatCurrency(0)
+      <div className="md:grid md:grid-cols-[1fr_1.5fr] md:gap-x-8 px-4 md:px-6">
+        <div className="space-y-6">
+          {/* Budget Card */}
+          <section className="mb-6 md:mb-0">
+            <div className="bg-card rounded-xl p-6 border border-border relative">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                Total Budget
+              </p>
+              <div className="flex gap-2 mb-4">
+                <h2 className="text-4xl font-bold tabular-nums tracking-tight text-foreground inline-flex">
+                  {data.budget ? (
+                    <InlineEditableNumber
+                      value={data.budget.totalBudget}
+                      onSave={handleUpdateBudget}
+                      formatAsCurrency={true}
+                    />
+                  ) : (
+                    formatCurrency(0)
+                  )}
+                </h2>
+              </div>
+              {data.budget && (
+                <>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs font-semibold tabular-nums text-muted-foreground">
+                      {formatCurrency(data.budget.spent)} spent
+                    </span>
+                    <span className="text-xs font-semibold tabular-nums text-muted-foreground">
+                      {formatCurrency(data.budget.remaining)} left
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden relative">
+                      <div
+                        className={`absolute left-0 top-0 h-full rounded-full transition-all duration-300 ${data.budget.spent > data.budget.totalBudget && data.budget.totalBudget > 0 ? "bg-red-500" : "bg-primary"}`}
+                        style={{ width: `${data.budget.totalBudget > 0 ? Math.min(100, Math.round((data.budget.spent / data.budget.totalBudget) * 100)) : 0}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-semibold tabular-nums text-muted-foreground">
+                      {data.budget.totalBudget > 0 ? Math.round((data.budget.spent / data.budget.totalBudget) * 100) : 0}%
+                    </span>
+                  </div>
+                  {updateBudgetMutation.isError ? (
+                    <p className="mt-3 text-xs text-red-500">{budgetError}</p>
+                  ) : null}
+                </>
               )}
-            </h2>
-          </div>
+            </div>
+          </section>
+
+          {/* Quick Log Spend */}
           {data.budget && (
-            <>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-semibold tabular-nums text-muted-foreground">
-                  {formatCurrency(data.budget.spent)} spent
-                </span>
-                <span className="text-xs font-semibold tabular-nums text-muted-foreground">
-                  {formatCurrency(data.budget.remaining)} left
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden relative">
-                  <div
-                    className={`absolute left-0 top-0 h-full rounded-full transition-all duration-300 ${data.budget.spent > data.budget.totalBudget && data.budget.totalBudget > 0 ? "bg-red-500" : "bg-primary"}`}
-                    style={{ width: `${data.budget.totalBudget > 0 ? Math.min(100, Math.round((data.budget.spent / data.budget.totalBudget) * 100)) : 0}%` }}
-                  />
-                </div>
-                <span className="text-xs font-semibold tabular-nums text-muted-foreground">
-                  {data.budget.totalBudget > 0 ? Math.round((data.budget.spent / data.budget.totalBudget) * 100) : 0}%
-                </span>
-              </div>
-              {updateBudgetMutation.isError ? (
-                <p className="mt-3 text-xs text-red-500">{budgetError}</p>
-              ) : null}
-            </>
+            <QuickSpendInput categories={data.categories} />
           )}
         </div>
-      </section>
 
-      {/* Quick Log Spend */}
-      {data.budget && (
-        <QuickSpendInput categories={data.categories} />
-      )}
-
-      {/* Net Worth Growth */}
-      <section className="px-4 mb-6">
-        <div className="flex items-end justify-between mb-3">
-          <div>
-            <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">
-              Net Worth Growth
-            </h3>
-            <p className="text-2xl font-bold tabular-nums text-foreground">
-              {formatCurrency(currentNetWorth)}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className={`text-xs font-bold tabular-nums ${netWorthChange >= 0 ? 'text-foreground' : 'text-red-400'}`}>
-              {netWorthChange > 0 ? '+' : ''}{netWorthChange}%
-            </p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Last 6 Months</p>
-          </div>
-        </div>
-        <div className="bg-muted/50 rounded-xl border border-border">
-          {data.netWorthHistory.length > 1 ? (
-            <NetWorthChart data={data.netWorthHistory} />
-          ) : (
-             <div className="w-full aspect-video flex items-center justify-center text-muted-foreground text-xs uppercase tracking-widest">
-               Needs more data
-             </div>
-          )}
-        </div>
-        {/* X labels */}
-        <div className="flex justify-between px-2 mt-2">
-          {chartLabels.slice(0, 5).map((m, idx) => (
-            <span key={idx} className="text-[10px] text-muted-foreground font-medium">{m}</span>
-          ))}
-        </div>
-      </section>
-
-      {/* Financial Goals */}
-      <section className="px-4 pb-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-            Financial Goals
-          </h3>
-          <button
-            onClick={() => {
-              haptic.light();
-              setShowAddGoal(true);
-            }}
-            className="text-[11px] font-bold text-foreground flex items-center gap-1 transition-transform active:scale-95"
-          >
-            <span className="material-symbols-outlined text-sm">add</span>
-            NEW GOAL
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          {data.goals.length === 0 && !showAddGoal ? (
-            <div className="p-4 border border-border rounded-xl bg-card text-center text-xs tracking-widest uppercase text-muted-foreground">
-              No active goals
+        <div className="space-y-6 pt-2">
+          {/* Net Worth Growth */}
+          <section className="mb-6 md:mb-0">
+            <div className="flex items-end justify-between mb-3">
+              <div>
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">
+                  Net Worth Growth
+                </h3>
+                <p className="text-2xl font-bold tabular-nums text-foreground">
+                  {formatCurrency(currentNetWorth)}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className={`text-xs font-bold tabular-nums ${netWorthChange >= 0 ? 'text-foreground' : 'text-red-400'}`}>
+                  {netWorthChange > 0 ? '+' : ''}{netWorthChange}%
+                </p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Last 6 Months</p>
+              </div>
             </div>
-          ) : data.goals.map((goal) => {
-            const current = Number(goal.current_amount);
-            const target = Number(goal.target_amount);
-            const pct = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
-            return (
-              <div
-                key={goal.id}
-                className="group p-4 border border-border rounded-xl bg-card relative"
+            <div className="bg-muted/50 rounded-xl border border-border">
+              {data.netWorthHistory.length > 1 ? (
+                <NetWorthChart data={data.netWorthHistory} />
+              ) : (
+                 <div className="w-full aspect-video flex items-center justify-center text-muted-foreground text-xs uppercase tracking-widest">
+                   Needs more data
+                 </div>
+              )}
+            </div>
+            {/* X labels */}
+            <div className="flex justify-between px-2 mt-2">
+              {chartLabels.slice(0, 5).map((m, idx) => (
+                <span key={idx} className="text-[10px] text-muted-foreground font-medium">{m}</span>
+              ))}
+            </div>
+          </section>
+
+          {/* Financial Goals */}
+          <section className="pb-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Financial Goals
+              </h3>
+              <button
+                onClick={() => {
+                  haptic.light();
+                  setShowAddGoal(true);
+                }}
+                className="text-[11px] font-bold text-foreground flex items-center gap-1 transition-transform active:scale-95"
               >
-                <div className="flex justify-between items-center mb-3">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setPickerGoalId(goal.id)}
-                      className="text-xl grayscale shrink-0 hover:scale-110 transition-transform"
-                      title="Set Goal Icon"
-                    >
-                      {goal.icon || '🎯'}
-                    </button>
-                    <span className="text-sm font-semibold text-foreground truncate">
-                      <InlineEditableText 
-                        value={goal.name} 
-                        onSave={(val) => handleUpdateGoal(goal.id, { name: val })} 
-                      />
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-sm font-bold tabular-nums text-foreground bg-muted px-2 py-0.5 rounded flex gap-1">
-                      <InlineEditableNumber 
-                        value={current} 
-                        onSave={(val) => handleUpdateGoal(goal.id, { current_amount: val })} 
-                        className="text-foreground"
-                      />
-                      <span className="opacity-50 text-muted-foreground">/</span>
-                      <InlineEditableNumber 
-                        value={target} 
-                        onSave={(val) => handleUpdateGoal(goal.id, { target_amount: val })} 
-                      />
-                    </span>
-                    <button
-                      onClick={() => handleDeleteGoal(goal.id)}
-                      className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-opacity translate-x-1"
-                      title="Delete Goal"
-                    >
-                      <span className="material-symbols-outlined text-sm">delete</span>
-                    </button>
-                  </div>
-                </div>
-                <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary rounded-full transition-all duration-300"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-
-          {showAddGoal && (
-            <div className="p-4 bg-card border border-border rounded-xl space-y-3">
-              <h4 className="text-sm font-bold text-foreground">New Tracking Goal</h4>
-              <input
-                type="text"
-                placeholder="Goal Name (e.g. Vacation Fund)"
-                value={newGoal.name}
-                onChange={(e) => setNewGoal({ ...newGoal, name: e.target.value })}
-                className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-              <input
-                type="number"
-                min="0"
-                placeholder="Target Amount (₹)"
-                value={newGoal.targetAmount}
-                onChange={(e) => setNewGoal({ ...newGoal, targetAmount: e.target.value })}
-                className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={handleAddGoal}
-                  className="flex-1 py-2 bg-primary text-primary-foreground text-xs font-bold uppercase tracking-widest rounded-lg active:scale-95"
-                >
-                  Save Goal
-                </button>
-                <button
-                  onClick={() => setShowAddGoal(false)}
-                  className="flex-1 py-2 bg-muted text-foreground text-xs font-medium uppercase tracking-widest rounded-lg"
-                >
-                  Cancel
-                </button>
-              </div>
+                <span className="material-symbols-outlined text-sm">add</span>
+                NEW GOAL
+              </button>
             </div>
-          )}
+
+            <div className="space-y-3">
+              {data.goals.length === 0 && !showAddGoal ? (
+                <div className="p-4 border border-border rounded-xl bg-card text-center text-xs tracking-widest uppercase text-muted-foreground">
+                  No active goals
+                </div>
+              ) : data.goals.map((goal) => {
+                const current = Number(goal.current_amount);
+                const target = Number(goal.target_amount);
+                const pct = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
+                return (
+                  <div
+                    key={goal.id}
+                    className="group p-4 border border-border rounded-xl bg-card relative"
+                  >
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setPickerGoalId(goal.id)}
+                          className="text-xl grayscale shrink-0 hover:scale-110 transition-transform"
+                          title="Set Goal Icon"
+                        >
+                          {goal.icon || '🎯'}
+                        </button>
+                        <span className="text-sm font-semibold text-foreground truncate max-w-[120px] md:max-w-[200px]">
+                          <InlineEditableText 
+                            value={goal.name} 
+                            onSave={(val) => handleUpdateGoal(goal.id, { name: val })} 
+                          />
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-sm font-bold tabular-nums text-foreground bg-muted px-2 py-0.5 rounded flex gap-1">
+                          <InlineEditableNumber 
+                            value={current} 
+                            onSave={(val) => handleUpdateGoal(goal.id, { current_amount: val })} 
+                            className="text-foreground"
+                          />
+                          <span className="opacity-50 text-muted-foreground">/</span>
+                          <InlineEditableNumber 
+                            value={target} 
+                            onSave={(val) => handleUpdateGoal(goal.id, { target_amount: val })} 
+                          />
+                        </span>
+                        <button
+                          onClick={() => handleDeleteGoal(goal.id)}
+                          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-opacity translate-x-1"
+                          title="Delete Goal"
+                        >
+                          <span className="material-symbols-outlined text-sm">delete</span>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full transition-all duration-300"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+
+              {showAddGoal && (
+                <div className="p-4 bg-card border border-border rounded-xl space-y-3">
+                  <h4 className="text-sm font-bold text-foreground">New Tracking Goal</h4>
+                  <input
+                    type="text"
+                    placeholder="Goal Name (e.g. Vacation Fund)"
+                    value={newGoal.name}
+                    onChange={(e) => setNewGoal({ ...newGoal, name: e.target.value })}
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Target Amount (₹)"
+                    value={newGoal.targetAmount}
+                    onChange={(e) => setNewGoal({ ...newGoal, targetAmount: e.target.value })}
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleAddGoal}
+                      className="flex-1 py-2 bg-primary text-primary-foreground text-xs font-bold uppercase tracking-widest rounded-lg active:scale-95"
+                    >
+                      Save Goal
+                    </button>
+                    <button
+                      onClick={() => setShowAddGoal(false)}
+                      className="flex-1 py-2 bg-muted text-foreground text-xs font-medium uppercase tracking-widest rounded-lg"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
         </div>
-      </section>
+      </div>
 
       <EmojiPickerModal
         isOpen={pickerGoalId !== null}

@@ -32,13 +32,17 @@ const navItems = [
   },
 ];
 
-export default function BottomNav() {
+export default function SidebarNav() {
   const pathname = usePathname();
   const haptic = useHaptic();
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] bg-card/90 backdrop-blur-md border-t border-border px-6 pt-3 pb-7 z-50">
-      <div className="flex items-center justify-between">
+    <aside className="hidden md:flex flex-col w-64 border-r border-border bg-card min-h-screen sticky top-0">
+      <div className="p-6">
+        <h1 className="text-xl font-bold tracking-tight text-foreground">AlloCat</h1>
+      </div>
+      
+      <nav className="flex-1 px-4 py-6 space-y-2">
         {navItems.map((item) => {
           const isActive =
             pathname === item.href ||
@@ -48,12 +52,14 @@ export default function BottomNav() {
               key={item.href}
               href={item.href}
               onClick={() => haptic.light()}
-              className={`flex flex-1 flex-col items-center gap-1 ${
-                isActive ? "text-foreground" : "text-muted-foreground"
+              className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-colors ${
+                isActive 
+                  ? "bg-primary text-primary-foreground font-medium" 
+                  : "text-muted-foreground hover:bg-muted"
               }`}
             >
               <span
-                className="material-symbols-outlined text-2xl"
+                className="material-symbols-outlined text-xl"
                 style={
                   isActive
                     ? { fontVariationSettings: "'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24" }
@@ -63,8 +69,8 @@ export default function BottomNav() {
                 {item.icon}
               </span>
               <span
-                className={`text-[10px] font-bold uppercase tracking-tighter ${
-                  isActive ? "text-foreground" : "text-muted-foreground"
+                className={`text-sm font-bold uppercase tracking-widest ${
+                  isActive ? "text-primary-foreground" : "text-muted-foreground"
                 }`}
               >
                 {item.label}
@@ -72,7 +78,14 @@ export default function BottomNav() {
             </Link>
           );
         })}
+      </nav>
+      
+      {/* Bottom Area (e.g., sync status could go here) */}
+      <div className="p-6 border-t border-border">
+        <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-center">
+          AlloCat © {new Date().getFullYear()}
+        </p>
       </div>
-    </nav>
+    </aside>
   );
 }

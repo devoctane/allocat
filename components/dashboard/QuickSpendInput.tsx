@@ -163,7 +163,7 @@ export default function QuickSpendInput({ categories }: QuickSpendInputProps) {
   const selectedItem = items.find((i) => i.id === selectedItemId);
 
   return (
-    <section className="px-4 mb-6">
+    <section>
       <div className="bg-card rounded-xl border border-border p-5">
         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">
           Quick Log Spend

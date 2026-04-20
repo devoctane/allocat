@@ -130,183 +130,189 @@ export default function BudgetPage({ data, defaultMonth, defaultYear }: BudgetPa
   return (
     <>
       {/* Header */}
-      <header className="flex items-center justify-between px-6 pt-10 pb-4">
+      <header className="flex items-center justify-between px-6 pt-10 pb-4 md:pt-12 md:pb-8">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground">AlloCat</h1>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground">AlloCat</h1>
           <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mt-0.5">
             Financial Overview
           </p>
         </div>
-        <Link
-          href="/profile"
-          className="flex size-10 items-center justify-center rounded-full bg-muted text-foreground"
-        >
-          <span className="material-symbols-outlined text-[20px]">account_circle</span>
-        </Link>
+        <div className="md:hidden">
+          <Link
+            href="/profile"
+            className="flex size-10 items-center justify-center rounded-full bg-muted text-foreground"
+          >
+            <span className="material-symbols-outlined text-[20px]">account_circle</span>
+          </Link>
+        </div>
       </header>
 
-      {/* Month Selector */}
-      <div className="px-4 mb-4">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium text-muted-foreground">Period</span>
-          {isCurrentMonth && (
-            <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Current</span>
-          )}
-        </div>
-        <BottomSheetSelect
-          title="Select Month"
-          placeholder="Select month…"
-          options={MONTHS.map((m, i) => ({ value: String(i), label: `${m} ${defaultYear}` }))}
-          value={String(defaultMonth - 1)}
-          onChange={(val) => handleMonthChange(Number(val))}
-        />
-      </div>
-
-      {/* Total Budget */}
-      <div className="px-4 mb-4">
-        <div className="rounded-xl border border-border bg-card p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-2">
-                Total Budget
-              </p>
-              <div className="text-3xl font-bold tabular-nums tracking-tight text-foreground">
-                <InlineEditableNumber
-                  value={data.totalBudget}
-                  onSave={handleUpdateBudget}
-                  className="text-3xl font-bold tracking-tight"
-                />
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Tap the amount to set the top budget for all category allocations.
-              </p>
+      <div className="md:grid md:grid-cols-2 lg:grid-cols-[1fr_1.5fr] md:gap-x-8 px-4 md:px-6">
+        <div className="space-y-6 mb-6 md:mb-0">
+          {/* Month Selector */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-muted-foreground">Period</span>
+              {isCurrentMonth && (
+                <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Current</span>
+              )}
             </div>
-            <div className="shrink-0 text-right">
-              <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">
-                Total Allocated
-              </p>
-              <p className="text-sm font-bold tabular-nums text-foreground">
-                {formatCurrency(totalAllocated)}
-              </p>
-            </div>
+            <BottomSheetSelect
+              title="Select Month"
+              placeholder="Select month…"
+              options={MONTHS.map((m, i) => ({ value: String(i), label: `${m} ${defaultYear}` }))}
+              value={String(defaultMonth - 1)}
+              onChange={(val) => handleMonthChange(Number(val))}
+            />
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <div className="rounded-lg border border-border bg-background px-4 py-3">
-              <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">
-                Allocated vs Total
-              </p>
-              <p className="text-sm font-bold tabular-nums text-foreground">
-                {formatCurrency(totalAllocated)} / {formatCurrency(data.totalBudget)}
-              </p>
-            </div>
-            <div className="rounded-lg border border-border bg-background px-4 py-3">
-              <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">
-                {unallocatedBudget < 0 ? "Over Allocated" : "Left to Allocate"}
-              </p>
-              <p className={`text-sm font-bold tabular-nums ${unallocatedBudget < 0 ? "text-red-400" : "text-primary"}`}>
-                {formatCurrency(Math.abs(unallocatedBudget))}
-              </p>
-            </div>
-          </div>
-
-          {budgetTotalError ? (
-            <p className="mt-3 text-xs text-red-400">{budgetTotalError}</p>
-          ) : null}
-        </div>
-      </div>
-
-      {/* Budget Overview Grid */}
-      <div className="px-4 mb-6">
-        <div className="grid grid-cols-3 border border-border rounded-xl overflow-hidden bg-card">
-          <div className="flex flex-col p-4 border-r border-border">
-            <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Allocated</p>
-            <p className="text-sm font-bold tabular-nums text-foreground">{formatCurrency(totalAllocated)}</p>
-          </div>
-          <div className="flex flex-col p-4 border-r border-border bg-muted/20">
-            <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Spent</p>
-            <p className="text-sm font-bold tabular-nums text-foreground">{formatCurrency(totalSpent)}</p>
-          </div>
-          <div className="flex flex-col p-4">
-            <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Remaining</p>
-            <p className={`text-sm font-bold tabular-nums ${totalRemaining < 0 ? 'text-red-400' : 'text-primary'}`}>
-              {formatCurrency(totalRemaining)}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Categories */}
-      <div className="px-4 flex-1">
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Categories</h3>
-          <button
-            id="add-category-inline"
-            type="button"
-            onClick={openAddCategory}
-            className="text-[11px] font-bold text-primary underline underline-offset-4 decoration-primary/40 hover:text-foreground"
-          >
-            ADD CATEGORY
-          </button>
-        </div>
-
-        <div className="space-y-6">
-          {data.categories.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border bg-card/60 px-4 py-8 text-center">
-              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                No categories yet
-              </p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Create your first category to start planning this budget.
-              </p>
-              <button
-                type="button"
-                onClick={openAddCategory}
-                className="mt-5 rounded-full bg-primary px-4 py-2 text-xs font-bold uppercase tracking-widest text-primary-foreground shadow-lg shadow-black/15 active:scale-95 transition-transform"
-              >
-                Add First Category
-              </button>
-            </div>
-          ) : data.categories.map((cat) => {
-            const pct = cat.allocated > 0 ? Math.min(100, Math.round((cat.spent / cat.allocated) * 100)) : 0;
-            const isOver = cat.spent > cat.allocated;
-            return (
-              <Link 
-                key={cat.id} 
-                href={`/budget/${cat.id}`} 
-                className="block"
-                onClick={() => haptic.selection()}
-              >
-                <div className="flex flex-col gap-2 group">
-                  <div className="flex justify-between items-end">
-                    <div className="flex items-center gap-2">
-                      {cat.icon ? (
-                        <span className="text-lg leading-none grayscale">{cat.icon}</span>
-                      ) : null}
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">{cat.name}</span>
-                        <span className="text-[11px] text-muted-foreground">{cat.subtitle}</span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className={`text-sm font-bold tabular-nums ${isOver ? "text-red-400" : "text-foreground"}`}>
-                        {formatCurrency(cat.spent)}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground ml-1">
-                        / {formatCurrency(cat.allocated)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="w-full bg-muted h-1.5 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${isOver ? "bg-red-500" : "bg-primary"}`}
-                      style={{ width: `${pct}%` }}
+          {/* Total Budget */}
+          <div>
+            <div className="rounded-xl border border-border bg-card p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-2">
+                    Total Budget
+                  </p>
+                  <div className="text-3xl font-bold tabular-nums tracking-tight text-foreground">
+                    <InlineEditableNumber
+                      value={data.totalBudget}
+                      onSave={handleUpdateBudget}
+                      className="text-3xl font-bold tracking-tight"
                     />
                   </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Tap the amount to set the top budget for all category allocations.
+                  </p>
                 </div>
-              </Link>
-            );
-          })}
+                <div className="shrink-0 text-right">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">
+                    Total Allocated
+                  </p>
+                  <p className="text-sm font-bold tabular-nums text-foreground">
+                    {formatCurrency(totalAllocated)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="rounded-lg border border-border bg-background px-4 py-3">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">
+                    Allocated vs Total
+                  </p>
+                  <p className="text-sm font-bold tabular-nums text-foreground">
+                    {formatCurrency(totalAllocated)} / {formatCurrency(data.totalBudget)}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border bg-background px-4 py-3">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">
+                    {unallocatedBudget < 0 ? "Over Allocated" : "Left to Allocate"}
+                  </p>
+                  <p className={`text-sm font-bold tabular-nums ${unallocatedBudget < 0 ? "text-red-400" : "text-primary"}`}>
+                    {formatCurrency(Math.abs(unallocatedBudget))}
+                  </p>
+                </div>
+              </div>
+
+              {budgetTotalError ? (
+                <p className="mt-3 text-xs text-red-400">{budgetTotalError}</p>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Budget Overview Grid */}
+          <div>
+            <div className="grid grid-cols-3 border border-border rounded-xl overflow-hidden bg-card">
+              <div className="flex flex-col p-4 border-r border-border">
+                <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Allocated</p>
+                <p className="text-sm font-bold tabular-nums text-foreground">{formatCurrency(totalAllocated)}</p>
+              </div>
+              <div className="flex flex-col p-4 border-r border-border bg-muted/20">
+                <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Spent</p>
+                <p className="text-sm font-bold tabular-nums text-foreground">{formatCurrency(totalSpent)}</p>
+              </div>
+              <div className="flex flex-col p-4">
+                <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Remaining</p>
+                <p className={`text-sm font-bold tabular-nums ${totalRemaining < 0 ? 'text-red-400' : 'text-primary'}`}>
+                  {formatCurrency(totalRemaining)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Categories */}
+        <div className="flex-1">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Categories</h3>
+            <button
+              id="add-category-inline"
+              type="button"
+              onClick={openAddCategory}
+              className="text-[11px] font-bold text-primary underline underline-offset-4 decoration-primary/40 hover:text-foreground"
+            >
+              ADD CATEGORY
+            </button>
+          </div>
+
+          <div className="space-y-6">
+            {data.categories.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border bg-card/60 px-4 py-8 text-center">
+                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  No categories yet
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Create your first category to start planning this budget.
+                </p>
+                <button
+                  type="button"
+                  onClick={openAddCategory}
+                  className="mt-5 rounded-full bg-primary px-4 py-2 text-xs font-bold uppercase tracking-widest text-primary-foreground shadow-lg shadow-black/15 active:scale-95 transition-transform"
+                >
+                  Add First Category
+                </button>
+              </div>
+            ) : data.categories.map((cat) => {
+              const pct = cat.allocated > 0 ? Math.min(100, Math.round((cat.spent / cat.allocated) * 100)) : 0;
+              const isOver = cat.spent > cat.allocated;
+              return (
+                <Link 
+                  key={cat.id} 
+                  href={`/budget/${cat.id}`} 
+                  className="block"
+                  onClick={() => haptic.selection()}
+                >
+                  <div className="flex flex-col gap-2 group">
+                    <div className="flex justify-between items-end">
+                      <div className="flex items-center gap-2">
+                        {cat.icon ? (
+                          <span className="text-lg leading-none grayscale">{cat.icon}</span>
+                        ) : null}
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">{cat.name}</span>
+                          <span className="text-[11px] text-muted-foreground">{cat.subtitle}</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className={`text-sm font-bold tabular-nums ${isOver ? "text-red-400" : "text-foreground"}`}>
+                          {formatCurrency(cat.spent)}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground ml-1">
+                          / {formatCurrency(cat.allocated)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="w-full bg-muted h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${isOver ? "bg-red-500" : "bg-primary"}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
         </div>
       </div>
 

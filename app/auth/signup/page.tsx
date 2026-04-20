@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { OAuthButtons } from "@/components/auth/OAuthButtons";
 import { signup } from "@/lib/actions/auth";
 import { useHaptic } from "@/lib/hooks/useHaptic";
 
@@ -104,6 +105,14 @@ export default function SignupPage() {
             {isPending ? "Creating account..." : "Create Account"}
           </button>
         </form>
+
+        <div className="relative flex py-5 items-center">
+          <div className="flex-grow border-t border-zinc-800"></div>
+          <span className="flex-shrink mx-4 text-zinc-500 text-sm">or continue with</span>
+          <div className="flex-grow border-t border-zinc-800"></div>
+        </div>
+
+        <OAuthButtons />
 
         <p className="text-center text-zinc-400 text-sm mt-8">
           Already have an account?{" "}

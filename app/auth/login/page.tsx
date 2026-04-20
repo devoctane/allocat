@@ -5,6 +5,7 @@ import { useActionState, useEffect } from "react";
 import { login } from "@/lib/actions/auth";
 import { useHaptic } from "@/lib/hooks/useHaptic";
 import { useState } from "react";
+import { OAuthButtons } from "@/components/auth/OAuthButtons";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -101,16 +102,7 @@ export default function LoginPage() {
           <div className="flex-grow border-t border-zinc-800"></div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <button className="flex items-center justify-center gap-2 h-14 bg-transparent border border-zinc-800 rounded-xl hover:bg-zinc-900 transition-colors text-white">
-            <span className="material-symbols-outlined text-[20px]">account_circle</span>
-            <span className="text-sm font-medium">Google</span>
-          </button>
-          <button className="flex items-center justify-center gap-2 h-14 bg-transparent border border-zinc-800 rounded-xl hover:bg-zinc-900 transition-colors text-white">
-            <span className="material-symbols-outlined text-[20px]">terminal</span>
-            <span className="text-sm font-medium">GitHub</span>
-          </button>
-        </div>
+        <OAuthButtons />
 
         <p className="text-center text-zinc-400 text-sm mt-8">
           Don&apos;t have an account?{" "}
