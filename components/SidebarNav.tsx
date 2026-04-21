@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useHaptic } from "@/lib/hooks/useHaptic";
 
 const navItems = [
@@ -35,6 +36,16 @@ const navItems = [
 export default function SidebarNav() {
   const pathname = usePathname();
   const haptic = useHaptic();
+  const [showMobileHint, setShowMobileHint] = useState(false);
+
+  useEffect(() => {
+    if (!localStorage.getItem("mobile-hint-dismissed")) setShowMobileHint(true);
+  }, []);
+
+  const dismissHint = () => {
+    localStorage.setItem("mobile-hint-dismissed", "1");
+    setShowMobileHint(false);
+  };
 
   return (
     <aside className="hidden md:flex flex-col w-64 border-r border-border bg-card min-h-screen sticky top-0">
@@ -80,8 +91,29 @@ export default function SidebarNav() {
         })}
       </nav>
       
-      {/* Bottom Area (e.g., sync status could go here) */}
-      <div className="p-6 border-t border-border">
+      <div className="p-4 border-t border-border flex flex-col gap-3">
+        {showMobileHint && (
+          <div className="p-3 rounded-xl bg-muted/60 border border-border flex items-start gap-2">
+            <span
+              className="material-symbols-outlined text-muted-foreground shrink-0 mt-0.5"
+              style={{ fontSize: "16px" }}
+            >
+              smartphone
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-foreground leading-tight">Better on mobile</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                AlloCat is designed for your phone. Open it on mobile for the best experience.
+              </p>
+            </div>
+            <button
+              onClick={dismissHint}
+              className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>close</span>
+            </button>
+          </div>
+        )}
         <p className="text-[10px] uppercase tracking-widest text-muted-foreground text-center">
           AlloCat © {new Date().getFullYear()}
         </p>
