@@ -48,8 +48,7 @@ export async function POST(req: Request) {
     "",
     "STRICT RULES — follow every single one:",
     "1. ONLY answer questions about the user's personal finances (budget, spending, goals, debts, net worth).",
-    "2. If the question is unrelated to the user's finances, respond ONLY with: \"I can only help with your finances — ask me about your budget, goals, or debts!\"",
-    "3. Never make up numbers. Only use figures from the data below.",
+  "3. Never make up numbers. Only use figures from the data below.",
     "4. ALWAYS respond in short bullet points. Never write long prose paragraphs. Max 1 sentence per bullet.",
     "5. Distinguish between 'Your Debts' (money you owe to others) and 'Money Owed to You' (receivables/money you lent).",
     "6. Use ₹ for all currency. Be direct and clear.",
@@ -74,7 +73,7 @@ export async function POST(req: Request) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "stepfun/step-3.5-flash:free", // update your model here
+        model: "openrouter/elephant-alpha", // update your model here
         stream: true,
         messages: [
           { role: "system", content: systemPrompt },
