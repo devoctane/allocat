@@ -2,6 +2,7 @@ import BottomNav from "@/components/BottomNav";
 import SidebarNav from "@/components/SidebarNav";
 import { SyncProvider } from "@/lib/providers/SyncProvider";
 import { SyncStatusBadge } from "@/components/ui/SyncStatusBadge";
+import { InstallPrompt } from "@/components/ui/InstallPrompt";
 
 export default async function AppLayout({
   children,
@@ -21,6 +22,7 @@ export default async function AppLayout({
             {children}
           </div>
         </main>
+        <InstallPrompt />
         <BottomNav />
       </div>
     </SyncProvider>
