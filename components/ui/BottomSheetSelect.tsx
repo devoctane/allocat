@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Drawer } from "vaul";
+import { hasNumericText } from "@/lib/number-format";
 
 export interface SelectOption<T extends string = string> {
   value: T;
@@ -40,6 +41,7 @@ export function BottomSheetSelect<T extends string = string>({
   const [open, setOpen] = useState(false);
 
   const selected = options.find((o) => o.value === value);
+  const selectedHasNumericText = selected ? hasNumericText(selected.label) : false;
 
   return (
     <Drawer.Root open={open} onOpenChange={setOpen}>
@@ -54,7 +56,14 @@ export function BottomSheetSelect<T extends string = string>({
             "w-full flex items-center justify-between bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
           }
         >
-          <span className={selected ? "text-foreground" : "text-muted-foreground"}>
+          <span
+            className={[
+              selected ? "text-foreground" : "text-muted-foreground",
+              selectedHasNumericText ? "font-mono tabular-nums" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
             {selected
               ? `${selected.icon ? selected.icon + " " : ""}${selected.label}`
               : placeholder}
@@ -90,6 +99,10 @@ export function BottomSheetSelect<T extends string = string>({
             <ul className="px-2 py-2 space-y-0.5">
               {options.map((opt) => {
                 const isSelected = opt.value === value;
+                const labelHasNumericText = hasNumericText(opt.label);
+                const descriptionHasNumericText = opt.description
+                  ? hasNumericText(opt.description)
+                  : false;
                 return (
                   <li key={opt.value}>
                     <button
@@ -111,11 +124,27 @@ export function BottomSheetSelect<T extends string = string>({
                           </span>
                         )}
                         <div>
-                          <span className="text-sm font-medium block">
+                          <span
+                            className={[
+                              "text-sm font-medium block",
+                              labelHasNumericText ? "font-mono tabular-nums" : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
+                          >
                             {opt.label}
                           </span>
                           {opt.description && (
-                            <span className="text-[11px] text-muted-foreground block mt-0.5">
+                            <span
+                              className={[
+                                "text-[11px] text-muted-foreground block mt-0.5",
+                                descriptionHasNumericText
+                                  ? "font-mono tabular-nums"
+                                  : "",
+                              ]
+                                .filter(Boolean)
+                                .join(" ")}
+                            >
                               {opt.description}
                             </span>
                           )}

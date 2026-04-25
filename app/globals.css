@@ -81,6 +81,22 @@ body {
 
 /* ===== Utilities ===== */
 .tabular-nums {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.currency-symbol {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 0.62em;
+  line-height: 1;
+  margin-right: 0.08em;
+}
+
+input[type="number"],
+input[inputmode="decimal"],
+input[inputmode="numeric"],
+input[type="date"] {
+  font-family: var(--font-mono), ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
 }
 

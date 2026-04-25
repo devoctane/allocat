@@ -3,6 +3,7 @@ import { getNetWorthData } from "@/lib/actions/net-worth";
 import { getDB } from "@/lib/db";
 import { useEnqueue } from "@/lib/hooks/useSync";
 import { DASHBOARD_KEY } from "./useDashboard";
+import { computeMonthlyHistory } from "@/lib/utils/netWorthHistory";
 
 export const NET_WORTH_KEY = ["net-worth"] as const;
 
@@ -30,6 +31,7 @@ export async function getNetWorthFromIDB() {
       category_name: cat?.name ?? a.category ?? "Other",
       category_icon: cat?.icon ?? "📦",
       value: Number(a.value),
+      invested_amount: Number(a.invested_amount ?? a.value),
       created_at: a.created_at,
       updated_at: a.updated_at,
     };
@@ -40,7 +42,15 @@ export async function getNetWorthFromIDB() {
     .filter((d) => !d.is_closed && d.type !== "lent")
     .reduce((sum, d) => sum + (Number(d.principal) - Number(d.total_paid)), 0);
 
-  return { assets: normalizedAssets, totalLiabilities };
+  return {
+    assets: normalizedAssets,
+    totalLiabilities,
+    netWorthHistory: computeMonthlyHistory(
+      await db.asset_value_history.toArray(),
+      totalLiabilities,
+      12
+    ),
+  };
 }
 
 // ─── Query ────────────────────────────────────────────────────────────────────
@@ -87,6 +97,7 @@ export function useAddAsset() {
         category: null,
         category_id: categoryId,
         value,
+        invested_amount: value,
         created_at: now,
         updated_at: now,
       });

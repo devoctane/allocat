@@ -1,11 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getDebtData } from "@/lib/actions/debt";
+import { getDebtData, getDebtPaymentTrend } from "@/lib/actions/debt";
 import { getDB } from "@/lib/db";
 import { useEnqueue } from "@/lib/hooks/useSync";
 import { DASHBOARD_KEY } from "./useDashboard";
 import { NET_WORTH_KEY } from "./useNetWorth";
+import { calcTotalRepayable } from "@/lib/utils/debt-calc";
 
 export const DEBT_KEY = ["debt"] as const;
+export const DEBT_TREND_KEY = ["debt-trend"] as const;
 
 // ─── IDB read helper ──────────────────────────────────────────────────────────
 
@@ -25,10 +27,13 @@ export async function getDebtFromIDB() {
     totalPaid: Number(d.total_paid),
     expectedPayoffDate: d.expected_payoff_date,
     isClosed: d.is_closed,
+    interestType: (d.interest_type ?? "flat") as "flat" | "diminishing",
+    loanTenureMonths: d.loan_tenure_months ?? null,
+    totalRepayable: Number(d.total_repayable ?? d.principal),
   }));
 }
 
-// ─── Query ────────────────────────────────────────────────────────────────────
+// ─── Queries ──────────────────────────────────────────────────────────────────
 
 export function useDebtData() {
   return useQuery({
@@ -38,6 +43,14 @@ export function useDebtData() {
       if (local) return local;
       return getDebtData();
     },
+  });
+}
+
+export function useDebtPaymentTrend() {
+  return useQuery({
+    queryKey: DEBT_TREND_KEY,
+    queryFn: () => getDebtPaymentTrend(),
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -55,6 +68,8 @@ export function useAddDebt() {
       interestRate,
       monthlyMin,
       expectedPayoffDate,
+      interestType = "flat",
+      loanTenureMonths = null,
     }: {
       name: string;
       type: "internal" | "external" | "lent";
@@ -62,10 +77,13 @@ export function useAddDebt() {
       interestRate: number;
       monthlyMin: number;
       expectedPayoffDate?: string | null;
+      interestType?: "flat" | "diminishing";
+      loanTenureMonths?: number | null;
     }) => {
       const db = getDB();
       const tempId = `temp_${crypto.randomUUID()}`;
       const now = new Date().toISOString();
+      const totalRepayable = calcTotalRepayable(principal, interestRate, loanTenureMonths, interestType);
 
       await db.debts.add({
         id: tempId,
@@ -79,6 +97,9 @@ export function useAddDebt() {
         total_paid: 0,
         is_closed: false,
         expected_payoff_date: expectedPayoffDate ?? null,
+        interest_type: interestType,
+        loan_tenure_months: loanTenureMonths,
+        total_repayable: totalRepayable,
         created_at: now,
         updated_at: now,
       });
@@ -88,7 +109,7 @@ export function useAddDebt() {
         operation: "INSERT",
         recordId: tempId,
         tempId,
-        payload: { name, type, principal, interestRate, monthlyMin, expectedPayoffDate },
+        payload: { name, type, principal, interestRate, monthlyMin, expectedPayoffDate, interestType, loanTenureMonths },
       });
 
       return { id: tempId };
@@ -119,9 +140,30 @@ export function useUpdateDebt() {
         monthly_minimum?: number;
         expected_payoff_date?: string | null;
         is_closed?: boolean;
+        interest_type?: "flat" | "diminishing";
+        loan_tenure_months?: number | null;
+        total_repayable?: number;
       };
     }) => {
       const db = getDB();
+
+      // Recalculate total_repayable locally if relevant fields change
+      if (
+        updates.principal !== undefined ||
+        updates.interest_rate !== undefined ||
+        updates.loan_tenure_months !== undefined ||
+        updates.interest_type !== undefined
+      ) {
+        const current = await db.debts.get(id);
+        if (current) {
+          const principal = updates.principal ?? Number(current.principal);
+          const rate = updates.interest_rate ?? Number(current.interest_rate);
+          const tenure = updates.loan_tenure_months !== undefined ? updates.loan_tenure_months : current.loan_tenure_months;
+          const iType = updates.interest_type ?? current.interest_type ?? "flat";
+          updates.total_repayable = calcTotalRepayable(principal, rate, tenure, iType);
+        }
+      }
+
       await db.debts.update(id, {
         ...updates,
         updated_at: new Date().toISOString(),
@@ -174,7 +216,10 @@ export function useMakePayment() {
       const debt = await db.debts.get(id);
       if (debt) {
         const newTotalPaid = Number(debt.total_paid) + amount;
-        const isClosed = newTotalPaid >= Number(debt.principal);
+        const repayableTarget = Number(debt.total_repayable) > 0
+          ? Number(debt.total_repayable)
+          : Number(debt.principal);
+        const isClosed = newTotalPaid >= repayableTarget;
         await db.debts.update(id, {
           total_paid: newTotalPaid,
           is_closed: isClosed || debt.is_closed,
@@ -190,6 +235,7 @@ export function useMakePayment() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: DEBT_KEY });
+      qc.invalidateQueries({ queryKey: DEBT_TREND_KEY });
       qc.invalidateQueries({ queryKey: NET_WORTH_KEY });
       qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
     },

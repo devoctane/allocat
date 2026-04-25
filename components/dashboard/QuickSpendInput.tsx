@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { BottomSheetSelect } from "@/components/ui/BottomSheetSelect";
+import { CurrencyText } from "@/components/ui/CurrencyText";
 import { useCategoryItems, useQuickLogSpend } from "@/lib/hooks/useDashboard";
 import { useHaptic } from "@/lib/hooks/useHaptic";
 
@@ -51,12 +52,21 @@ function AllocationStatus({ result }: { result: SpendResult }) {
           className="font-mono text-[11px] tabular-nums"
           style={{ color: isOver || isCritical ? "#ef4444" : isWarning ? "#f59e0b" : "var(--foreground)" }}
         >
-          {isOver ? `Over by ${fmt(Math.abs(remaining))}` : `${fmt(remaining)} left`}
+          {isOver ? (
+            <>
+              Over by <CurrencyText value={Math.abs(remaining)} />
+            </>
+          ) : (
+            <>
+              <CurrencyText value={remaining} /> left
+            </>
+          )}
         </span>
       </div>
       <p className="font-mono text-[10px] text-muted-foreground truncate">
         <span className="text-foreground">{itemName}</span>
-        {" "}— {fmt(result.actual)} of {fmt(planned)}
+        {" "}— <CurrencyText value={result.actual} /> of{" "}
+        <CurrencyText value={planned} />
       </p>
       <div className="flex gap-[2px]">
         {Array.from({ length: 20 }).map((_, j) => (
@@ -201,17 +211,27 @@ export default function QuickSpendInput({ categories }: QuickSpendInputProps) {
           {selectedItem && !lastResult && (
             <p className="font-mono text-[10px] tabular-nums text-muted-foreground">
               {selectedItem.remaining > 0
-                ? `${fmt(selectedItem.remaining)} remaining of ${fmt(selectedItem.planned)}`
+                ? (
+                    <>
+                      <CurrencyText value={selectedItem.remaining} /> remaining
+                      {" "}of <CurrencyText value={selectedItem.planned} />
+                    </>
+                  )
                 : selectedItem.planned === 0
                 ? "No allocation set"
-                : `Over budget by ${fmt(Math.abs(selectedItem.remaining))}`}
+                : (
+                    <>
+                      Over budget by{" "}
+                      <CurrencyText value={Math.abs(selectedItem.remaining)} />
+                    </>
+                  )}
             </p>
           )}
 
           {/* Amount */}
           <div>
             <label className="font-mono text-[9px] tracking-[0.14em] uppercase text-muted-foreground mb-1.5 block">
-              Amount (₹)
+              Amount (<span className="currency-symbol">₹</span>)
             </label>
             <input
               type="number"

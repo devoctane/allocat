@@ -1,15 +1,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import DebtEmptyState from "./DebtEmptyState";
-import { InlineEditableText } from "@/components/ui/InlineEditableText";
-import { InlineEditableNumber } from "@/components/ui/InlineEditableNumber";
-import EmojiPickerModal from "@/components/ui/EmojiPickerModal";
-import { BottomSheetSelect } from "@/components/ui/BottomSheetSelect";
+import { DebtDetailSheet } from "./DebtDetailSheet";
 import { ConfirmDrawer } from "@/components/ui/ConfirmDrawer";
 import { useHaptic } from "@/lib/hooks/useHaptic";
-import { useAddDebt, useUpdateDebt, useDeleteDebt, useMakePayment, useUpdateDebtIcon } from "@/lib/hooks/useDebt";
+import {
+  useAddDebt,
+  useUpdateDebt,
+  useDeleteDebt,
+  useMakePayment,
+  useUpdateDebtIcon,
+  useDebtPaymentTrend,
+} from "@/lib/hooks/useDebt";
 import LentListView from "./LentListView";
+import DebtEmptyState from "./DebtEmptyState";
+import EmojiPickerModal from "@/components/ui/EmojiPickerModal";
+import { CurrencyText } from "@/components/ui/CurrencyText";
+import { BottomSheetSelect } from "@/components/ui/BottomSheetSelect";
 
 type Debt = {
   id: string;
@@ -22,30 +29,81 @@ type Debt = {
   totalPaid: number;
   expectedPayoffDate?: string | null;
   isClosed: boolean;
+  interestType: "flat" | "diminishing";
+  loanTenureMonths: number | null;
+  totalRepayable: number;
 };
 
-const DEBT_TYPE_OPTIONS = [
-  { value: "external" as const, label: "External", description: "Bank loans, credit cards, etc." },
-  { value: "internal" as const, label: "Internal", description: "Family, friends, personal" },
-];
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
+function MonthCaption() {
+  const now = new Date();
+  return (
+    <span>
+      {now.toLocaleString("en-US", { month: "short" })} {now.getFullYear()}
+    </span>
+  );
+}
+
+// 41-tick ruler — exact same pattern as BudgetPage TickRuler
+function TickRuler({ pct }: { pct: number }) {
+  const count = 41;
+  return (
+    <div>
+      <div className="relative h-[18px]">
+        <div className="absolute inset-0 flex justify-between items-end">
+          {Array.from({ length: count }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                width: 1,
+                height: i % 10 === 0 ? 14 : i % 5 === 0 ? 9 : 5,
+                background: i / (count - 1) <= pct ? "var(--foreground)" : "var(--progress-empty)",
+              }}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="flex justify-between mt-1.5">
+        {["0", "25%", "50%", "75%", "paid"].map((l) => (
+          <span key={l} className="font-mono text-[9px] text-foreground/30 tracking-[0.08em]">
+            {l}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// 20-segment dash bar per debt — matches budget SegBar style
+function SegBar({ pct }: { pct: number }) {
+  const count = 20;
+  return (
+    <div className="flex gap-[2px] mt-2.5">
+      {Array.from({ length: count }).map((_, j) => (
+        <div
+          key={j}
+          className="flex-1"
+          style={{
+            height: 3,
+            background: j / count < pct ? "var(--foreground)" : "var(--progress-empty)",
+          }}
+        />
+      ))}
+    </div>
+  );
 }
 
 export default function DebtPage({ data }: { data: Debt[] }) {
-  const [activeTab, setActiveTab] = useState<"internal" | "external">("external");
+  const [activeTab, setActiveTab] = useState<"internal" | "external" | "closed">("external");
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDebtId, setPaymentDebtId] = useState("");
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [pickerDebtId, setPickerDebtId] = useState<string | null>(null);
   const [showLentList, setShowLentList] = useState(false);
   const [debtToDelete, setDebtToDelete] = useState<string | null>(null);
+  const [pickerDebtId, setPickerDebtId] = useState<string | null>(null);
+  // Sheet state
+  const [sheetMode, setSheetMode] = useState<"add" | "edit">("add");
+  const [sheetDebt, setSheetDebt] = useState<Debt | undefined>(undefined);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const haptic = useHaptic();
 
   const addDebtMutation = useAddDebt();
@@ -53,68 +111,103 @@ export default function DebtPage({ data }: { data: Debt[] }) {
   const deleteDebtMutation = useDeleteDebt();
   const makePaymentMutation = useMakePayment();
   const updateDebtIconMutation = useUpdateDebtIcon();
+  const { data: trendData } = useDebtPaymentTrend();
 
-  const [newDebt, setNewDebt] = useState({
-    name: "",
-    type: "external" as "internal" | "external",
-    principal: "",
-    interestRate: "",
-    monthlyMin: "",
-  });
+  const allActiveDebts = data.filter((d) => !d.isClosed && d.type !== "lent");
+  const activeDebts = allActiveDebts.filter((d) => d.type === activeTab);
+  const closedDebts = data.filter((d) => d.isClosed && d.type !== "lent");
+  const lents = data.filter((d) => d.type === "lent");
 
-  const activeDebts = data.filter((d) => !d.isClosed && d.type === activeTab);
-  const closedDebts = data.filter((d) => d.isClosed && d.type === activeTab);
-  const totalOutstanding = data.filter((d) => !d.isClosed && d.type !== "lent").reduce((s, d) => s + (d.principal - d.totalPaid), 0);
-  
-  const lents = data.filter(d => d.type === "lent");
-  const totalLent = lents.filter(d => !d.isClosed).reduce((s, d) => s + (d.principal - d.totalPaid), 0);
+  const totalOutstanding = allActiveDebts.reduce((s, d) => {
+    const repayable = d.totalRepayable > 0 ? d.totalRepayable : d.principal;
+    return s + Math.max(0, repayable - d.totalPaid);
+  }, 0);
+
+  const totalLent = lents.filter((d) => !d.isClosed).reduce(
+    (s, d) => s + Math.max(0, d.principal - d.totalPaid), 0
+  );
 
   const avgInterest =
-    data.filter((d) => !d.isClosed && d.type !== "lent" && d.interestRate > 0).reduce((s, d) => s + d.interestRate, 0) /
-    (data.filter((d) => !d.isClosed && d.type !== "lent" && d.interestRate > 0).length || 1);
+    allActiveDebts.filter((d) => d.interestRate > 0).reduce((s, d) => s + d.interestRate, 0) /
+    (allActiveDebts.filter((d) => d.interestRate > 0).length || 1);
 
-  // Auto-select first active debt for Quick Payment
+  // Overall payoff % across all active debts
+  const totalPaidAll = allActiveDebts.reduce((s, d) => s + d.totalPaid, 0);
+  const totalRepayableAll = allActiveDebts.reduce((s, d) => {
+    return s + (d.totalRepayable > 0 ? d.totalRepayable : d.principal);
+  }, 0);
+  const overallPct = totalRepayableAll > 0 ? totalPaidAll / totalRepayableAll : 0;
+
+  // Quick payment — all active non-lent debts
+  const quickPayDebts = data.filter((d) => !d.isClosed && d.type !== "lent");
+
   useEffect(() => {
-    if (!activeDebts.find((d) => d.id === paymentDebtId)) {
-      const id = setTimeout(() => {
-        setPaymentDebtId(activeDebts.length > 0 ? activeDebts[0].id : "");
-      }, 0);
-      return () => clearTimeout(id);
+    if (quickPayDebts.length > 0 && !quickPayDebts.find((d) => d.id === paymentDebtId)) {
+      setPaymentDebtId(quickPayDebts[0].id);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, [data.length]);
 
-  function handleAddDebt() {
-    const principal = parseFloat(newDebt.principal);
-    const interest = parseFloat(newDebt.interestRate || "0");
-    const monthly = parseFloat(newDebt.monthlyMin || "0");
-    if (!newDebt.name.trim() || isNaN(principal) || principal <= 0) return;
-    
-    haptic.success();
-    addDebtMutation.mutate(
-      { name: newDebt.name.trim(), type: newDebt.type, principal, interestRate: interest, monthlyMin: monthly },
-      {
-        onSuccess: () => {
-          setNewDebt({ name: "", type: "external", principal: "", interestRate: "", monthlyMin: "" });
-          setShowAddForm(false);
+  function openAddSheet() {
+    setSheetMode("add");
+    setSheetDebt(undefined);
+    setSheetOpen(true);
+  }
+
+  function openEditSheet(debt: Debt) {
+    setSheetMode("edit");
+    setSheetDebt(debt);
+    setSheetOpen(true);
+  }
+
+  function handleSheetSave(formData: {
+    name: string;
+    type: "internal" | "external";
+    principal: number;
+    interestRate: number;
+    monthlyMin: number;
+    interestType: "flat" | "diminishing";
+    loanTenureMonths: number | null;
+    totalRepayable: number;
+  }) {
+    if (sheetMode === "add") {
+      addDebtMutation.mutate({
+        name: formData.name,
+        type: formData.type,
+        principal: formData.principal,
+        interestRate: formData.interestRate,
+        monthlyMin: formData.monthlyMin,
+        interestType: formData.interestType,
+        loanTenureMonths: formData.loanTenureMonths,
+      });
+    } else if (sheetDebt) {
+      updateDebtMutation.mutate({
+        id: sheetDebt.id,
+        updates: {
+          name: formData.name,
+          type: formData.type,
+          principal: formData.principal,
+          interest_rate: formData.interestRate,
+          monthly_minimum: formData.monthlyMin,
+          interest_type: formData.interestType,
+          loan_tenure_months: formData.loanTenureMonths,
+          total_repayable: formData.totalRepayable,
         },
-      }
-    );
+      });
+    }
+  }
+
+  function handleCloseDebt(id: string, shouldClose: boolean) {
+    updateDebtMutation.mutate({ id, updates: { is_closed: shouldClose } });
   }
 
   function handleDeleteDebt(id: string) {
-    haptic.light();
     setDebtToDelete(id);
-  }
-
-  function handleUpdateDebt(id: string, updates: { name?: string; principal?: number; interest_rate?: number; monthly_minimum?: number }) {
-    updateDebtMutation.mutate({ id, updates });
   }
 
   function handleMakePayment() {
     const amount = parseFloat(paymentAmount);
     if (isNaN(amount) || amount <= 0 || !paymentDebtId) return;
-
     haptic.success();
     makePaymentMutation.mutate(
       { id: paymentDebtId, amount },
@@ -122,402 +215,325 @@ export default function DebtPage({ data }: { data: Debt[] }) {
     );
   }
 
-  function handleUpdateDebtIcon(id: string, icon: string) {
-    updateDebtIconMutation.mutate({ id, icon });
+const trendPct = trendData?.trendPct ?? 0;
+  const trendLabel = trendPct === 0
+    ? "—"
+    : `${trendPct >= 0 ? "↘" : "↗"} ${Math.abs(trendPct).toFixed(1)}%`;
+
+  const hasDebts = data.filter((d) => d.type !== "lent").length > 0;
+  const hasLents = lents.length > 0;
+
+  if (showLentList) {
+    return (
+      <LentListView lents={lents} onBack={() => setShowLentList(false)} />
+    );
+  }
+
+  if (!hasDebts && !hasLents) {
+    return (
+      <>
+        <header className="px-7 pt-14 pb-[18px] border-b border-border">
+          <div className="font-display text-[32px] leading-none tracking-[-0.02em] text-foreground">Debt</div>
+          <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground mt-2">
+            Liability Tracker · <MonthCaption />
+          </div>
+        </header>
+        <main className="px-4 pb-6">
+          <DebtEmptyState onAddDebt={openAddSheet} />
+        </main>
+        <DebtDetailSheet
+          mode="add"
+          open={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+          onSave={handleSheetSave}
+        />
+      </>
+    );
   }
 
   return (
     <>
-      {/* Header */}
-      <header className="px-7 pt-14 pb-[18px] border-b border-border">
+      {/* ── Masthead ─────────────────────────────────────────────── */}
+      <header className="px-7 pt-6 pb-[18px] border-b border-border">
         <div className="font-display text-[32px] leading-none tracking-[-0.02em] text-foreground">Debt</div>
-        <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground mt-2">Liability Tracker</div>
+        <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground mt-2">
+          Liability Tracker · <MonthCaption />
+        </div>
       </header>
 
-      <main className="px-4 pb-6 transition-opacity">
-        {showLentList ? (
-          <LentListView lents={lents} onBack={() => setShowLentList(false)} />
-        ) : data.filter(d => d.type !== "lent").length === 0 && lents.length === 0 ? (
-          <>
-            {showAddForm ? (
-               <div className="mt-6 p-4 bg-card border border-border rounded-xl space-y-3">
-               <h4 className="text-sm font-bold text-foreground">New Debt</h4>
-               <input
-                 id="new-debt-name"
-                 type="text"
-                 placeholder="Name (e.g. Car Loan)"
-                 value={newDebt.name}
-                 onChange={(e) => setNewDebt((p) => ({ ...p, name: e.target.value }))}
-                 className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-               />
-               <div className="grid grid-cols-2 gap-3">
-                 <input
-                   id="new-debt-principal"
-                   type="number"
-                   min="0"
-                   placeholder="Principal (₹)"
-                   value={newDebt.principal}
-                   onChange={(e) => setNewDebt((p) => ({ ...p, principal: e.target.value }))}
-                   className="bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                 />
-                 <input
-                   id="new-debt-interest"
-                   type="number"
-                   min="0"
-                   placeholder="Interest (%)"
-                   value={newDebt.interestRate}
-                   onChange={(e) => setNewDebt((p) => ({ ...p, interestRate: e.target.value }))}
-                   className="bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                 />
-               </div>
-               <input
-                 id="new-debt-monthly"
-                 type="number"
-                 min="0"
-                 placeholder="Monthly minimum (₹)"
-                 value={newDebt.monthlyMin}
-                 onChange={(e) => setNewDebt((p) => ({ ...p, monthlyMin: e.target.value }))}
-                 className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-               />
-               <BottomSheetSelect
-                 id="new-debt-type"
-                 title="Debt Type"
-                 options={DEBT_TYPE_OPTIONS}
-                 value={newDebt.type}
-                 onChange={(val) => setNewDebt((p) => ({ ...p, type: val }))}
-               />
-               <div className="flex gap-2">
-                 <button
-                   id="save-new-debt"
-                   onClick={handleAddDebt}
-                   className="flex-1 py-2.5 bg-primary text-primary-foreground text-sm font-bold rounded-lg active:scale-95 transition-transform"
-                 >
-                   Save
-                 </button>
-                 <button
-                   id="cancel-new-debt"
-                   onClick={() => setShowAddForm(false)}
-                   className="flex-1 py-2.5 bg-muted text-foreground text-sm font-medium rounded-lg transition-colors"
-                 >
-                   Cancel
-                 </button>
-               </div>
-             </div>
-            ) : (
-              <DebtEmptyState onAddDebt={() => setShowAddForm(true)} />
+      <main className="pb-10">
+        {/* ── Hero ─────────────────────────────────────────────────── */}
+        <div className="px-7 pt-7 pb-6">
+          <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground mb-2">
+            Total Outstanding · <MonthCaption />
+          </div>
+          <CurrencyText value={totalOutstanding} className="font-display text-[52px] leading-[0.95] tracking-[-0.025em] text-foreground" />
+          <div className="flex items-baseline gap-4 mt-3">
+            <span className="font-mono text-[11px] text-muted-foreground">
+              ↳ {allActiveDebts.length} active {allActiveDebts.length === 1 ? "liability" : "liabilities"}
+            </span>
+            {(hasLents || totalLent > 0) && (
+              <button
+                onClick={() => { haptic.light(); setShowLentList(true); }}
+                className="font-mono text-[11px] text-foreground underline underline-offset-2 decoration-foreground/30 hover:decoration-foreground transition-all inline-flex items-baseline gap-1"
+              >
+                · money out <CurrencyText value={totalLent} /> →
+              </button>
             )}
-          </>
-        ) : (
-          <>
-            <div className="md:grid md:grid-cols-[1fr_1.5fr] md:gap-x-8 mt-2">
-              <div className="space-y-6 mb-6 md:mb-0">
-                {/* Summary Cards */}
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Total Outstanding */}
-                  <div className="bg-card border border-border p-5 rounded-xl">
-                    <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
-                      Total Outstanding
-                    </p>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-bold tracking-tight tabular-nums text-foreground">
-                        {formatCurrency(totalOutstanding)}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* Total Lent out to friends */}
-                  <div 
-                    onClick={() => {
-                      haptic.light();
-                      setShowLentList(true);
-                    }}
-                    className="bg-card border border-border p-5 rounded-xl cursor-pointer hover:bg-muted/50 active:scale-95 transition-all text-left"
-                  >
-                    <div className="flex justify-between items-start">
-                      <p className="text-[10px] font-medium uppercase tracking-wider text-emerald-500 mb-1">Money Out to Friends</p>
-                      <span className="material-symbols-outlined text-[14px] text-muted-foreground">arrow_forward_ios</span>
-                    </div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-bold tracking-tight tabular-nums text-emerald-400">
-                        {formatCurrency(totalLent)}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* Interest Rate */}
-                  <div className="bg-card border border-border p-4 rounded-xl">
-                    <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Interest Rate</p>
-                    <p className="text-xl font-semibold tracking-tight text-foreground">
-                      {avgInterest.toFixed(1)}%{" "}
-                      <span className="text-xs font-normal text-muted-foreground">Avg</span>
-                    </p>
-                  </div>
-                  {/* Payoff Trend */}
-                  <div className="bg-card border border-border p-4 rounded-xl">
-                    <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Payoff Trend</p>
-                    <div className="flex items-center gap-1">
-                      <span className="material-symbols-outlined text-sm text-foreground">trending_down</span>
-                      <p className="text-xl font-semibold tracking-tight text-foreground">2.4%</p>
-                    </div>
-                  </div>
-                </div>
+          </div>
+        </div>
 
-                {/* Quick Payment */}
-                {activeDebts.length > 0 && (
-                  <div>
-                    <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-4">Quick Payment</h3>
-                    <div className="bg-card border border-border p-4 rounded-xl flex flex-col gap-3">
-                      <BottomSheetSelect
-                        title="Select Debt"
-                        options={activeDebts.map((d) => ({
-                          value: d.id,
-                          label: d.name,
-                          description: formatCurrency(d.principal - d.totalPaid) + " remaining",
-                          icon: d.icon ?? undefined,
-                        }))}
-                        value={paymentDebtId}
-                        onChange={setPaymentDebtId}
-                      />
-                      <div className="flex gap-3">
-                        <div className="flex-1 relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">₹</span>
-                          <input
-                            id="quick-payment-input"
-                            type="number"
-                            min="0"
-                            placeholder="0.00"
-                            value={paymentAmount}
-                            onChange={(e) => setPaymentAmount(e.target.value)}
-                            className="w-full pl-7 pr-3 py-2.5 bg-background border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                          />
-                        </div>
-                        <button
-                          id="pay-now-button"
-                          onClick={handleMakePayment}
-                          disabled={!paymentAmount || isNaN(parseFloat(paymentAmount)) || parseFloat(paymentAmount) <= 0}
-                          className="px-6 py-2.5 bg-primary text-primary-foreground text-sm font-semibold rounded-lg active:scale-95 disabled:opacity-50 disabled:pointer-events-none transition-all"
-                        >
-                          Mark as Paid
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+        <div className="h-px bg-border mx-7" />
+
+        {/* ── Sub-stats ─────────────────────────────────────────────── */}
+        <div className="px-7 py-5 flex justify-between items-baseline">
+          <div>
+            <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground mb-1">Avg Interest</div>
+            <div className="font-display text-[34px] leading-none tracking-[-0.02em] tabular-nums text-foreground">
+              {avgInterest.toFixed(1)}<span className="text-[20px] text-muted-foreground">%</span>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground mb-1">Payoff Trend</div>
+            <div className="font-mono text-[14px] tabular-nums text-foreground">{trendLabel}</div>
+            <div className="font-mono text-[9px] text-muted-foreground mt-0.5">30-day · vs outstanding</div>
+          </div>
+        </div>
+
+        {/* Tick ruler */}
+        {totalRepayableAll > 0 && (
+          <div className="px-7 pb-6">
+            <TickRuler pct={overallPct} />
+          </div>
+        )}
+
+        <div className="h-px bg-border mx-7" />
+
+        {/* ── Quick Payment ─────────────────────────────────────────── */}
+        {quickPayDebts.length > 0 && (
+          <>
+            <div className="px-7 pt-5 pb-1 flex justify-between items-baseline">
+              <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
+                Quick Payment
+              </span>
+              <span className="font-mono text-[10px] text-muted-foreground">Step 01</span>
+            </div>
+
+            <div className="px-7">
+              {/* Debt picker */}
+              <div className="py-2 border-t border-border">
+                <BottomSheetSelect
+                  title="Select Debt"
+                  options={quickPayDebts.map((d) => {
+                    const repayable = d.totalRepayable > 0 ? d.totalRepayable : d.principal;
+                    const remaining = Math.max(0, repayable - d.totalPaid);
+                    return {
+                      value: d.id,
+                      label: d.name,
+                      description: new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 0 }).format(remaining) + " remaining",
+                      icon: d.icon ?? undefined,
+                    };
+                  })}
+                  value={paymentDebtId}
+                  onChange={setPaymentDebtId}
+                />
               </div>
 
-              <div className="space-y-6">
-                {/* Internal / External Toggle */}
-                <div>
-                  <div className="flex p-1 bg-muted rounded-xl">
-                    {(["internal", "external"] as const).map((tab) => (
-                      <button
-                        key={tab}
-                        id={`debt-tab-${tab}`}
-                        onClick={() => {
-                          haptic.light();
-                          setActiveTab(tab);
-                        }}
-                        className={`flex-1 py-2 text-sm font-medium rounded-lg capitalize transition-all ${
-                          activeTab === tab
-                            ? "bg-card text-foreground shadow-sm"
-                            : "text-muted-foreground"
-                        }`}
-                      >
-                        {tab}
-                      </button>
-                    ))}
+              {/* Selected debt remaining */}
+              {(() => {
+                const sel = quickPayDebts.find((d) => d.id === paymentDebtId);
+                if (!sel) return null;
+                const repayable = sel.totalRepayable > 0 ? sel.totalRepayable : sel.principal;
+                const remaining = Math.max(0, repayable - sel.totalPaid);
+                const paidPct = repayable > 0 ? sel.totalPaid / repayable : 0;
+                return (
+                  <div className="py-2 border-t border-border flex items-baseline justify-between">
+                    <span className="font-mono text-[10px] tracking-[0.08em] uppercase text-muted-foreground">
+                      {Math.round(paidPct * 100)}% paid · remaining
+                    </span>
+                    <CurrencyText value={remaining} className="font-mono text-[13px] text-foreground" />
                   </div>
+                );
+              })()}
+
+              {/* Amount + action */}
+              <div className="flex items-baseline justify-between py-4 border-t border-border border-b border-b-border">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="currency-symbol font-sans text-foreground/30" style={{ fontSize: "calc(0.62 * 28px)" }}>₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={paymentAmount}
+                    onChange={(e) => setPaymentAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+                    placeholder="0"
+                    className="bg-transparent border-none outline-none font-display text-[28px] tracking-[-0.02em] text-foreground w-36 p-0 tabular-nums placeholder:text-foreground/30"
+                  />
                 </div>
-
-                {/* Active Debts */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Active Debts</h3>
-                    <button
-                      id="add-debt-button"
-                      onClick={() => setShowAddForm(true)}
-                      className="text-[11px] font-bold text-foreground flex items-center gap-1 transition-transform active:scale-95"
-                    >
-                      <span className="material-symbols-outlined text-sm">add</span>
-                      ADD NEW
-                    </button>
-                  </div>
-
-                  {activeDebts.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-6">No {activeTab} debts recorded.</p>
-                  )}
-
-                  {activeDebts.map((debt) => {
-                    const remaining = debt.principal - debt.totalPaid;
-                    const paidPct = debt.principal > 0 ? Math.round((debt.totalPaid / debt.principal) * 100) : 0;
-                    return (
-                      <div
-                        key={debt.id}
-                        className="group bg-card border border-border p-4 rounded-xl hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex justify-between items-start mb-4">
-                          <div className="flex items-start gap-2">
-                            <button
-                              onClick={() => setPickerDebtId(debt.id)}
-                              className="flex items-center justify-center size-8 mt-0.5 rounded-full bg-muted hover:bg-muted/80 transition-colors text-lg shrink-0"
-                              title="Set Emoji"
-                            >
-                              {debt.icon
-                                ? <span className="grayscale">{debt.icon}</span>
-                                : <span className="material-symbols-outlined text-sm text-muted-foreground">add_reaction</span>
-                              }
-                            </button>
-                            <div>
-                              <h4 className="font-bold text-base text-foreground">
-                                <InlineEditableText
-                                  value={debt.name}
-                                  onSave={(val) => handleUpdateDebt(debt.id, { name: val })}
-                                />
-                              </h4>
-                              <p className="text-xs flex items-center gap-1 text-muted-foreground mt-1">
-                                Int: <InlineEditableNumber value={debt.interestRate} onSave={(val) => handleUpdateDebt(debt.id, { interest_rate: val })} className="text-xs border-none" />% • Min: <InlineEditableNumber value={debt.monthlyMin} onSave={(val) => handleUpdateDebt(debt.id, { monthly_minimum: val })} formatAsCurrency={true} className="text-xs border-none" />
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-sm font-bold tabular-nums text-foreground">
-                              <InlineEditableNumber
-                                value={remaining}
-                                onSave={(val) => handleUpdateDebt(debt.id, { principal: val + debt.totalPaid })}
-                                formatAsCurrency={true}
-                              />
-                            </span>
-                            <button
-                              id={`delete-debt-${debt.id}`}
-                              onClick={() => handleDeleteDebt(debt.id)}
-                              className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-opacity"
-                              title="Delete Debt"
-                            >
-                              <span className="material-symbols-outlined text-base">delete</span>
-                            </button>
-                          </div>
-                        </div>
-                        <div className="w-full bg-muted h-1.5 rounded-full overflow-hidden">
-                          <div
-                            className="bg-primary h-full rounded-full transition-all duration-300"
-                            style={{ width: `${paidPct}%` }}
-                          />
-                        </div>
-                        <div className="flex justify-between mt-2">
-                          <span className="text-[10px] text-muted-foreground uppercase tracking-tighter">
-                            {paidPct}% PAID OFF
-                          </span>
-                          <span className="text-[10px] text-muted-foreground uppercase tracking-tighter">
-                            REMAINING: {formatCurrency(remaining)}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Closed Debts */}
-                {closedDebts.length > 0 && (
-                  <div className="space-y-4">
-                    <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Closed Debts</h3>
-                    {closedDebts.map((debt) => (
-                      <div key={debt.id} className="bg-card/50 border border-border p-4 rounded-xl opacity-50 relative group">
-                        <div className="flex justify-between items-center">
-                          <h4 className="font-bold text-sm text-foreground">{debt.name}</h4>
-                          <div className="flex items-center gap-3">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase">Paid Off</span>
-                            <button
-                              id={`delete-debt-closed-${debt.id}`}
-                              onClick={() => handleDeleteDebt(debt.id)}
-                              className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-opacity"
-                              title="Delete Record"
-                            >
-                              <span className="material-symbols-outlined text-base">delete</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <button
+                  onClick={handleMakePayment}
+                  disabled={!paymentAmount || parseFloat(paymentAmount) <= 0}
+                  className="px-4 py-3 bg-foreground text-background font-mono text-[10px] tracking-[0.14em] uppercase disabled:opacity-30 active:scale-95 transition-all"
+                >
+                  Mark Paid →
+                </button>
               </div>
             </div>
 
-            {/* Add Debt Form (if showing while debts exist) */}
-            {showAddForm && (
-              <div className="mt-6 p-4 bg-card border border-border rounded-xl space-y-3">
-                <h4 className="text-sm font-bold text-foreground">New Debt</h4>
-                <input
-                  id="new-debt-name-bottom"
-                  type="text"
-                  placeholder="Name (e.g. Car Loan)"
-                  value={newDebt.name}
-                  onChange={(e) => setNewDebt((p) => ({ ...p, name: e.target.value }))}
-                  className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-                <div className="grid grid-cols-2 gap-3">
-                  <input
-                    id="new-debt-principal-bottom"
-                    type="number"
-                    min="0"
-                    placeholder="Principal (₹)"
-                    value={newDebt.principal}
-                    onChange={(e) => setNewDebt((p) => ({ ...p, principal: e.target.value }))}
-                    className="bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                  <input
-                    id="new-debt-interest-bottom"
-                    type="number"
-                    min="0"
-                    placeholder="Interest (%)"
-                    value={newDebt.interestRate}
-                    onChange={(e) => setNewDebt((p) => ({ ...p, interestRate: e.target.value }))}
-                    className="bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
+            <div className="h-px bg-border mx-7 mt-1" />
+          </>
+        )}
+
+        {/* ── Tabs ─────────────────────────────────────────────────── */}
+        <div className="px-7 pt-5 pb-1 flex gap-5">
+          {([
+            { key: "internal", count: allActiveDebts.filter((d) => d.type === "internal").length, label: "Internal" },
+            { key: "external", count: allActiveDebts.filter((d) => d.type === "external").length, label: "External" },
+            { key: "closed", count: closedDebts.length, label: "Closed" },
+          ] as const).map(({ key, count, label }) => (
+            <button
+              key={key}
+              onClick={() => { haptic.light(); setActiveTab(key); }}
+              className={`font-mono text-[10px] tracking-[0.14em] uppercase pb-1 transition-colors ${
+                activeTab === key
+                  ? "text-foreground border-b border-foreground"
+                  : "text-muted-foreground border-b border-transparent hover:text-foreground"
+              }`}
+            >
+              {label} · {count}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Active Debts ──────────────────────────────────────────── */}
+        {activeTab !== "closed" ? (
+          <>
+            <div className="px-7 pt-4 pb-2 flex justify-between items-baseline">
+              <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
+                Active Debts · {activeDebts.length}
+              </span>
+              <button
+                onClick={openAddSheet}
+                className="font-mono text-[10px] tracking-[0.14em] uppercase text-foreground underline underline-offset-2 decoration-foreground/30 hover:decoration-foreground transition-all"
+              >
+                + New
+              </button>
+            </div>
+
+            <div className="px-7">
+              {activeDebts.length === 0 && (
+                <div className="py-8 text-center">
+                  <p className="font-mono text-[11px] text-muted-foreground">No {activeTab} debts.</p>
                 </div>
-                <input
-                  id="new-debt-monthly-bottom"
-                  type="number"
-                  min="0"
-                  placeholder="Monthly minimum (₹)"
-                  value={newDebt.monthlyMin}
-                  onChange={(e) => setNewDebt((p) => ({ ...p, monthlyMin: e.target.value }))}
-                  className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-                <BottomSheetSelect
-                   id="new-debt-type-bottom"
-                   title="Debt Type"
-                   options={DEBT_TYPE_OPTIONS}
-                   value={newDebt.type}
-                   onChange={(val) => setNewDebt((p) => ({ ...p, type: val }))}
-                 />
-                <div className="flex gap-2">
+              )}
+
+              {activeDebts.map((debt, i) => {
+                const repayable = debt.totalRepayable > 0 ? debt.totalRepayable : debt.principal;
+                const remaining = Math.max(0, repayable - debt.totalPaid);
+                const paidPct = repayable > 0 ? debt.totalPaid / repayable : 0;
+                return (
                   <button
-                    id="save-new-debt-bottom"
-                    onClick={handleAddDebt}
-                    className="flex-1 py-2.5 bg-primary text-primary-foreground text-sm font-bold rounded-lg active:scale-95 transition-transform"
+                    key={debt.id}
+                    onClick={() => openEditSheet(debt)}
+                    className="w-full text-left py-3.5 border-t border-border last:border-b last:border-b-border group"
                   >
-                    Save
+                    <div className="flex justify-between items-baseline">
+                      <div className="flex items-baseline gap-2.5">
+                        <span className="font-mono text-[10px] text-foreground/30">
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
+                        {debt.icon && (
+                          <span className="grayscale text-sm leading-none">{debt.icon}</span>
+                        )}
+                        <span className="text-[17px] font-semibold tracking-tight text-foreground leading-none">
+                          {debt.name}
+                        </span>
+                        {debt.interestRate > 0 && (
+                          <span className="font-mono text-[10px] text-muted-foreground">
+                            · {debt.interestRate}%
+                          </span>
+                        )}
+                      </div>
+                      <div className="font-mono text-[12px] text-right inline-flex items-baseline gap-1">
+                        <CurrencyText value={remaining} className="text-foreground" />
+                        {repayable !== debt.principal && (
+                          <span className="text-muted-foreground inline-flex items-baseline gap-0.5">/ <CurrencyText value={repayable} className="text-muted-foreground" /></span>
+                        )}
+                      </div>
+                    </div>
+                    <SegBar pct={paidPct} />
+                    <div className="flex justify-between mt-1.5">
+                      <span className="font-mono text-[9px] text-muted-foreground tracking-[0.08em] uppercase">
+                        {Math.round(paidPct * 100)}% paid off
+                      </span>
+                      <span className="font-mono text-[9px] text-muted-foreground tracking-[0.08em] uppercase inline-flex items-baseline gap-1 flex-wrap">
+                        {debt.monthlyMin > 0 && <><span>min</span> <CurrencyText value={debt.monthlyMin} /> <span>·</span></>}
+                        <span>remaining</span> <CurrencyText value={remaining} />
+                      </span>
+                    </div>
                   </button>
-                  <button
-                    id="cancel-new-debt-bottom"
-                    onClick={() => setShowAddForm(false)}
-                    className="flex-1 py-2.5 bg-muted text-foreground text-sm font-medium rounded-lg transition-colors"
-                  >
-                    Cancel
-                  </button>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="px-7 pt-4 pb-2">
+              <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
+                Closed Liabilities · {closedDebts.length}
+              </span>
+            </div>
+            <div className="px-7">
+              {closedDebts.length === 0 && (
+                <div className="py-8 text-center">
+                  <p className="font-mono text-[11px] text-muted-foreground">No closed liabilities.</p>
                 </div>
-              </div>
-            )}
+              )}
+              {closedDebts.map((debt, i) => (
+                <button
+                  key={debt.id}
+                  onClick={() => openEditSheet(debt)}
+                  className="w-full text-left py-3.5 border-t border-border last:border-b last:border-b-border opacity-40 hover:opacity-60 transition-opacity"
+                >
+                  <div className="flex justify-between items-baseline">
+                    <div className="flex items-baseline gap-2.5">
+                      <span className="font-mono text-[10px] text-foreground/30">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      {debt.icon && (
+                        <span className="grayscale text-sm leading-none">{debt.icon}</span>
+                      )}
+                      <span className="text-[15px] font-semibold tracking-tight text-foreground">
+                        {debt.name}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[9px] text-muted-foreground tracking-[0.08em] uppercase">✓ Paid Off</span>
+                      <CurrencyText value={debt.totalRepayable > 0 ? debt.totalRepayable : debt.principal} className="font-mono text-[11px] text-muted-foreground" />
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
           </>
         )}
       </main>
+
+      {/* ── Sheets & Modals ───────────────────────────────────────── */}
+      <DebtDetailSheet
+        mode={sheetMode}
+        debt={sheetDebt}
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onSave={handleSheetSave}
+        onCloseDebt={handleCloseDebt}
+        onDelete={handleDeleteDebt}
+      />
 
       <EmojiPickerModal
         isOpen={pickerDebtId !== null}
         onClose={() => setPickerDebtId(null)}
         onSelect={(emoji) => {
-          if (pickerDebtId) handleUpdateDebtIcon(pickerDebtId, emoji);
+          if (pickerDebtId) updateDebtIconMutation.mutate({ id: pickerDebtId, icon: emoji });
         }}
       />
 
@@ -531,7 +547,7 @@ export default function DebtPage({ data }: { data: Debt[] }) {
           }
         }}
         title="Delete Debt"
-        description="Are you sure you want to delete this debt? This action cannot be undone."
+        description="This debt record will be permanently deleted. This action cannot be undone."
         confirmText="Delete"
       />
     </>

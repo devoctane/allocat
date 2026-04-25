@@ -2,6 +2,7 @@
 
 import { Drawer } from "vaul";
 import { useEffect, useRef, useState } from "react";
+import { CurrencyText } from "@/components/ui/CurrencyText";
 import { useHaptic } from "@/lib/hooks/useHaptic";
 
 type EntryType = "add_funds" | "withdraw" | "update_value";
@@ -117,7 +118,10 @@ export function AssetEntrySheet({ open, entryType, currentValue, onClose, onSave
             <div>
               <Drawer.Title className="text-base font-bold text-foreground">{config.title}</Drawer.Title>
               <p id="asset-entry-description" className="text-sm text-muted-foreground mt-0.5">
-                Current value: {fmt(currentValue)}
+                Current value:{" "}
+                <span className="font-mono tabular-nums">
+                  <CurrencyText value={currentValue} />
+                </span>
               </p>
             </div>
 
@@ -136,7 +140,7 @@ export function AssetEntrySheet({ open, entryType, currentValue, onClose, onSave
                 className="w-full bg-background border border-border rounded-xl px-4 py-3 text-lg font-semibold text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-foreground"
               />
               {numAmount > 0 && (
-                <p className="text-xs text-muted-foreground px-1">
+                <p className="text-xs text-muted-foreground px-1 font-mono tabular-nums">
                   {config.hint(previewValue)}
                 </p>
               )}

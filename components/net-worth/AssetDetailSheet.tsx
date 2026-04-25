@@ -2,6 +2,7 @@
 
 import { Drawer } from "vaul";
 import { useState } from "react";
+import { CurrencyText } from "@/components/ui/CurrencyText";
 import { useHaptic } from "@/lib/hooks/useHaptic";
 import { useAssetHistory, useAddAssetEntry } from "@/lib/hooks/useAssetHistory";
 import { useUpdateAsset, useDeleteAsset } from "@/lib/hooks/useNetWorth";
@@ -20,20 +21,12 @@ export interface AssetDetail {
   category_name: string;
   category_icon: string;
   value: number;
+  invested_amount: number;
 }
 
 interface AssetDetailSheetProps {
   asset: AssetDetail | null;
   onClose: () => void;
-}
-
-function fmt(value: number) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
 }
 
 function entryTypeLabel(type: string) {
@@ -167,12 +160,46 @@ export function AssetDetailSheet({ asset, onClose }: AssetDetailSheetProps) {
                     </div>
                   </div>
 
-                  {/* Current value */}
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">Current Value</p>
-                    <p id="asset-detail-description" className="text-4xl font-bold tabular-nums tracking-tighter text-foreground">
-                      {fmt(asset.value)}
-                    </p>
+                  {/* Current value + invested + gain/loss */}
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">Current Value</p>
+                      <CurrencyText
+                        value={asset.value}
+                        className="text-4xl font-bold tracking-tighter text-foreground"
+                      />
+                    </div>
+                    {asset.invested_amount > 0 && (
+                      <div className="flex items-center gap-4">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Invested</p>
+                          <CurrencyText
+                            value={asset.invested_amount}
+                            className="text-sm font-semibold tabular-nums text-foreground"
+                          />
+                        </div>
+                        {(() => {
+                          const gain = asset.value - asset.invested_amount;
+                          const pct = asset.invested_amount > 0
+                            ? ((gain / asset.invested_amount) * 100).toFixed(1)
+                            : "0.0";
+                          const isPositive = gain >= 0;
+                          return (
+                            <div>
+                              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">
+                                {isPositive ? "Gain" : "Loss"}
+                              </p>
+                              <span className={`text-sm font-semibold tabular-nums ${isPositive ? "text-green-500" : "text-red-500"}`}>
+                                {isPositive ? "+" : ""}
+                                <CurrencyText value={gain} className="inline" />
+                                {" "}
+                                <span className="text-xs font-medium">({isPositive ? "+" : ""}{pct}%)</span>
+                              </span>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
                   </div>
 
                   {/* Action buttons */}
@@ -213,17 +240,26 @@ export function AssetDetailSheet({ asset, onClose }: AssetDetailSheetProps) {
                                 {entry.note ? ` · ${entry.note}` : ""}
                               </p>
                               <p className="text-[11px] text-muted-foreground mt-0.5">
-                                {new Date(entry.entry_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                                <span className="font-mono tabular-nums">
+                                  {new Date(entry.entry_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                                </span>
                               </p>
                             </div>
                             <div className="text-right shrink-0 ml-3">
                               <p className="text-xs font-semibold tabular-nums text-foreground">
                                 {entry.entry_type === "update_value" || entry.entry_type === "initial"
-                                  ? fmt(entry.running_total)
-                                  : `${entryTypeSign(entry.entry_type)}${fmt(entry.amount)}`}
+                                  ? <CurrencyText value={entry.running_total} />
+                                  : (
+                                      <>
+                                        {entryTypeSign(entry.entry_type)}
+                                        <CurrencyText value={entry.amount} />
+                                      </>
+                                    )}
                               </p>
                               {(entry.entry_type === "add_funds" || entry.entry_type === "withdraw") && (
-                                <p className="text-[10px] text-muted-foreground tabular-nums">{fmt(entry.running_total)}</p>
+                                <p className="text-[10px] text-muted-foreground tabular-nums">
+                                  <CurrencyText value={entry.running_total} />
+                                </p>
                               )}
                             </div>
                           </div>

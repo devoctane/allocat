@@ -2,20 +2,13 @@
 
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import { useHaptic } from "@/lib/hooks/useHaptic";
+import { CurrencyText } from "@/components/ui/CurrencyText";
 
 interface InlineEditableNumberProps {
   value: number;
   onSave: (val: number) => void;
   className?: string;
   formatAsCurrency?: boolean;
-}
-
-function formatCurrency(val: number) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(val);
 }
 
 export function InlineEditableNumber({ value, onSave, className = "", formatAsCurrency = true }: InlineEditableNumberProps) {
@@ -73,7 +66,7 @@ export function InlineEditableNumber({ value, onSave, className = "", formatAsCu
     );
   }
 
-  const displayVal = formatAsCurrency ? formatCurrency(value) : value.toLocaleString("en-IN");
+  const displayVal = value.toLocaleString("en-IN");
 
   return (
     <span
@@ -81,9 +74,9 @@ export function InlineEditableNumber({ value, onSave, className = "", formatAsCu
         haptic.light();
         setIsEditing(true);
       }}
-      className={`cursor-pointer hover:bg-muted transition-colors rounded px-1 -mx-1 tabular-nums ${className}`}
+      className={`cursor-pointer hover:bg-muted transition-colors rounded px-1 -mx-1 font-mono ${className}`}
     >
-      {displayVal}
+      {formatAsCurrency ? <CurrencyText value={value} /> : displayVal}
     </span>
   );
 }

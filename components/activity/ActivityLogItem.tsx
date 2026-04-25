@@ -61,7 +61,10 @@ export default function ActivityLogItem({ log, onClick }: ActivityLogItemProps) 
           {log.title}
         </p>
         <p className="text-xs text-muted-foreground mt-0.5 truncate">
-          {categoryLabel(log.category)} · {formatTime(log.created_at)}
+          {categoryLabel(log.category)} ·{" "}
+          <span className="font-mono tabular-nums">
+            {formatTime(log.created_at)}
+          </span>
         </p>
       </div>
 

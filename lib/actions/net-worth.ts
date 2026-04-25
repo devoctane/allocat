@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { upsertTodaySnapshot } from "./asset-history";
+import { computeMonthlyHistory } from "@/lib/utils/netWorthHistory";
 import { logActivity, fmt } from "@/lib/server/activity-logger";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -16,6 +17,7 @@ function normalizeAsset(raw: any) {
     category_name: (cat?.name ?? raw.category ?? "Other") as string,
     category_icon: (cat?.icon ?? "📦") as string,
     value: Number(raw.value),
+    invested_amount: Number(raw.invested_amount ?? raw.value),
     created_at: raw.created_at as string,
     updated_at: raw.updated_at as string,
   };
@@ -43,9 +45,19 @@ export async function getNetWorthData() {
     .filter(d => !d.is_closed && d.type !== "lent")
     .reduce((sum, d) => sum + (Number(d.principal) - Number(d.total_paid)), 0);
 
+  const { data: rawHistory } = await supabase
+    .from("asset_value_history")
+    .select("asset_id, running_total, entry_date, created_at")
+    .eq("user_id", user.id)
+    .order("entry_date", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  const netWorthHistory = computeMonthlyHistory(rawHistory ?? [], totalLiabilities, 12);
+
   return {
     assets: (assets || []).map(normalizeAsset),
-    totalLiabilities
+    totalLiabilities,
+    netWorthHistory,
   };
 }
 
@@ -67,6 +79,7 @@ export async function addAsset(
       category_id: categoryId,
       category: "",
       value,
+      invested_amount: value,
       icon: icon ?? null,
     })
     .select()

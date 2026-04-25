@@ -213,7 +213,9 @@ export function AddAssetSheet({ open, defaultCategoryId, onClose }: AddAssetShee
                   Current Value
                 </label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-sm">₹</span>
+                  <span className="currency-symbol absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    ₹
+                  </span>
                   <input
                     type="number"
                     inputMode="decimal"

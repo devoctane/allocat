@@ -135,6 +135,8 @@ export type Database = {
           icon: string | null
           target_amount: number
           current_amount: number
+          notes: string | null
+          priority: number
           created_at: string
           updated_at: string
         }
@@ -145,6 +147,8 @@ export type Database = {
           icon?: string | null
           target_amount?: number
           current_amount?: number
+          notes?: string | null
+          priority?: number
           created_at?: string
           updated_at?: string
         }
@@ -153,6 +157,8 @@ export type Database = {
           icon?: string | null
           target_amount?: number
           current_amount?: number
+          notes?: string | null
+          priority?: number
           updated_at?: string
         }
       }
@@ -217,6 +223,7 @@ export type Database = {
           category: string | null
           category_id: string | null
           value: number
+          invested_amount: number
           created_at: string
           updated_at: string
         }
@@ -228,6 +235,7 @@ export type Database = {
           category?: string | null
           category_id?: string | null
           value?: number
+          invested_amount?: number
           created_at?: string
           updated_at?: string
         }
@@ -237,6 +245,7 @@ export type Database = {
           category?: string | null
           category_id?: string | null
           value?: number
+          invested_amount?: number
           updated_at?: string
         }
       }
@@ -253,6 +262,9 @@ export type Database = {
           total_paid: number
           is_closed: boolean
           expected_payoff_date: string | null
+          interest_type: "flat" | "diminishing"
+          loan_tenure_months: number | null
+          total_repayable: number
           created_at: string
           updated_at: string
         }
@@ -268,6 +280,9 @@ export type Database = {
           total_paid?: number
           is_closed?: boolean
           expected_payoff_date?: string | null
+          interest_type?: "flat" | "diminishing"
+          loan_tenure_months?: number | null
+          total_repayable?: number
           created_at?: string
           updated_at?: string
         }
@@ -281,6 +296,9 @@ export type Database = {
           total_paid?: number
           is_closed?: boolean
           expected_payoff_date?: string | null
+          interest_type?: "flat" | "diminishing"
+          loan_tenure_months?: number | null
+          total_repayable?: number
           updated_at?: string
         }
       }

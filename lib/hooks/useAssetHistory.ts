@@ -61,14 +61,18 @@ export function useAddAssetEntry() {
       // Compute running_total from current asset value in IDB
       const asset = await db.assets.get(assetId);
       const currentValue = asset ? Number(asset.value) : 0;
+      const currentInvested = asset ? Number(asset.invested_amount ?? asset.value) : 0;
 
       let runningTotal: number;
+      let newInvestedAmount: number | undefined;
       switch (entryType) {
         case "add_funds":
           runningTotal = currentValue + amount;
+          newInvestedAmount = currentInvested + amount;
           break;
         case "withdraw":
           runningTotal = Math.max(0, currentValue - amount);
+          newInvestedAmount = Math.max(0, currentInvested - amount);
           break;
         case "update_value":
         case "initial":
@@ -90,9 +94,10 @@ export function useAddAssetEntry() {
         created_at: now,
       });
 
-      // Update denormalized asset value in IDB
+      // Update denormalized asset value (and invested_amount) in IDB
       await db.assets.update(assetId, {
         value: runningTotal,
+        ...(newInvestedAmount !== undefined ? { invested_amount: newInvestedAmount } : {}),
         updated_at: now,
       });
 

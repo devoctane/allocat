@@ -9,6 +9,7 @@ import { useHaptic } from "@/lib/hooks/useHaptic";
 import { useAddBudgetCategory, useUpdateBudgetTotal, budgetKey } from "@/lib/hooks/useBudget";
 import { DASHBOARD_KEY } from "@/lib/hooks/useDashboard";
 import { BottomSheetSelect } from "@/components/ui/BottomSheetSelect";
+import { CurrencyText } from "@/components/ui/CurrencyText";
 import { InlineEditableNumber } from "@/components/ui/InlineEditableNumber";
 import { BudgetSetupSheet } from "@/components/budget/BudgetSetupSheet";
 
@@ -39,10 +40,6 @@ interface BudgetPageProps {
   data: BudgetData;
   defaultMonth: number;
   defaultYear: number;
-}
-
-function fmt(value: number) {
-  return "₹" + Math.abs(value).toLocaleString("en-IN");
 }
 
 function TickRuler({ pct }: { pct: number }) {
@@ -169,7 +166,7 @@ export default function BudgetPage({ data, defaultMonth, defaultYear }: BudgetPa
         {/* Left column / mobile full */}
         <div>
           {/* Masthead */}
-          <div className="px-7 pt-14 pb-[18px] flex items-end justify-between">
+          <div className="px-7 pt-6 pb-[18px] flex items-end justify-between">
             <div>
               <div className="font-display text-[32px] leading-none tracking-[-0.02em] text-foreground">
                 AlloCat
@@ -203,19 +200,22 @@ export default function BudgetPage({ data, defaultMonth, defaultYear }: BudgetPa
             <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
               Total Budget · {monthName.substring(0, 3)}
             </div>
-            <div className="font-display text-[72px] md:text-[84px] leading-[0.95] tracking-[-0.025em] mt-2.5 text-foreground tabular-nums">
+            <div className="text-[72px] md:text-[84px] leading-[0.95] tracking-[-0.025em] mt-2.5 text-foreground tabular-nums">
               <InlineEditableNumber
                 value={data.totalBudget}
                 onSave={handleUpdateBudget}
-                className="font-display"
               />
             </div>
             {budgetTotalError ? (
               <p className="mt-2 font-mono text-[11px] text-red-400">{budgetTotalError}</p>
             ) : (
               <div className="flex flex-wrap gap-x-[18px] gap-y-1 mt-3.5 font-mono text-[11px] text-muted-foreground">
-                <span>↳ allocated {fmt(totalAllocated)}</span>
-                <span className="text-foreground">· free {fmt(unallocatedBudget)}</span>
+                <span>
+                  ↳ allocated <CurrencyText value={totalAllocated} />
+                </span>
+                <span className="text-foreground">
+                  · free <CurrencyText value={unallocatedBudget} />
+                </span>
               </div>
             )}
           </div>
@@ -230,9 +230,10 @@ export default function BudgetPage({ data, defaultMonth, defaultYear }: BudgetPa
                 <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
                   Spent
                 </div>
-                <div className="font-display text-[38px] tracking-[-0.02em] mt-1 text-foreground tabular-nums">
-                  {fmt(totalSpent)}
-                </div>
+                <CurrencyText
+                  value={totalSpent}
+                  className="text-[38px] tracking-[-0.02em] mt-1 text-foreground"
+                />
               </div>
               <div className="text-right">
                 <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
@@ -242,8 +243,11 @@ export default function BudgetPage({ data, defaultMonth, defaultYear }: BudgetPa
                   className="font-mono text-[14px] mt-1.5 tabular-nums"
                   style={{ color: totalRemaining < 0 ? "#ef4444" : "var(--muted-foreground)" }}
                 >
-                  {totalRemaining < 0 ? "−" : ""}{fmt(Math.abs(totalRemaining))}
-                  <span className="text-[11px]"> / {spentPct}%</span>
+                  {totalRemaining < 0 ? "−" : ""}
+                  <CurrencyText value={Math.abs(totalRemaining)} />
+                  <span className="text-[11px] font-mono tabular-nums">
+                    {" "} / {spentPct}%
+                  </span>
                 </div>
               </div>
             </div>
@@ -267,9 +271,9 @@ export default function BudgetPage({ data, defaultMonth, defaultYear }: BudgetPa
         {/* Right column / mobile bottom — Categories */}
         <div>
           {/* Categories header */}
-          <div className="md:border-l border-border">
+            <div className="md:border-l border-border">
             <div className="px-7 pt-5 md:pt-[72px] pb-3 flex items-baseline justify-between border-b border-border">
-              <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
+              <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground tabular-nums">
                 Categories · {data.categories.length}
               </div>
               <div className="flex items-center gap-4">
@@ -363,9 +367,11 @@ export default function BudgetPage({ data, defaultMonth, defaultYear }: BudgetPa
                           </div>
                           <div className="font-mono text-[12px] tabular-nums shrink-0">
                             <span style={{ color: isOver ? "#ef4444" : "var(--foreground)" }}>
-                              {fmt(cat.spent)}
+                              <CurrencyText value={cat.spent} />
                             </span>
-                            <span className="text-muted-foreground"> / {fmt(cat.allocated)}</span>
+                            <span className="text-muted-foreground">
+                              {" "} / <CurrencyText value={cat.allocated} />
+                            </span>
                           </div>
                         </div>
                         <SegBar pct={Math.min(pct, 1)} />

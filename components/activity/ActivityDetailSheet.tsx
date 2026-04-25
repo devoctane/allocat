@@ -1,6 +1,8 @@
 "use client";
 
+import { type ReactNode } from "react";
 import { MaterialSymbol } from "@/components/ui/MaterialSymbol";
+import { CurrencyText } from "@/components/ui/CurrencyText";
 import {
   Drawer,
   DrawerContent,
@@ -9,6 +11,7 @@ import {
   DrawerDescription,
 } from "@/components/ui/drawer";
 import type { ActivityLogRow } from "@/lib/db";
+import { hasNumericText } from "@/lib/number-format";
 
 function categoryLabel(category: ActivityLogRow["category"]) {
   switch (category) {
@@ -40,13 +43,25 @@ function formatDateTime(iso: string) {
   );
 }
 
-function MetadataRow({ label, value }: { label: string; value: string }) {
+function MetadataRow({
+  label,
+  value,
+  isNumeric = false,
+}: {
+  label: string;
+  value: ReactNode;
+  isNumeric?: boolean;
+}) {
   return (
     <div className="flex justify-between items-start py-3 border-b border-border last:border-0">
       <span className="text-xs uppercase tracking-widest text-muted-foreground font-bold">
         {label}
       </span>
-      <span className="text-sm font-semibold text-foreground text-right max-w-[60%]">
+      <span
+        className={`text-sm font-semibold text-foreground text-right max-w-[60%] ${
+          isNumeric ? "font-mono tabular-nums" : ""
+        }`}
+      >
         {value}
       </span>
     </div>
@@ -74,8 +89,13 @@ const FRIENDLY_KEYS: Record<string, string> = {
   newTotal: "New Total",
 };
 
-function formatValue(key: string, value: unknown): string {
-  if (value === null || value === undefined) return "—";
+function formatValue(
+  key: string,
+  value: unknown
+): { content: ReactNode; isNumeric: boolean } {
+  if (value === null || value === undefined) {
+    return { content: "—", isNumeric: false };
+  }
   if (
     typeof value === "number" &&
     (key.toLowerCase().includes("amount") ||
@@ -84,14 +104,16 @@ function formatValue(key: string, value: unknown): string {
       key.toLowerCase().includes("principal") ||
       key === "value")
   ) {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
+    return {
+      content: <CurrencyText value={value} />,
+      isNumeric: true,
+    };
   }
-  return String(value);
+  const stringValue = String(value);
+  return {
+    content: stringValue,
+    isNumeric: hasNumericText(stringValue),
+  };
 }
 
 interface ActivityDetailSheetProps {
@@ -137,19 +159,25 @@ export default function ActivityDetailSheet({
             <div className="overflow-y-auto flex-1 px-5 pb-10 pt-4">
               {metadataEntries.length > 0 && (
                 <div className="border border-border rounded-lg px-4 mb-6">
-                  {metadataEntries.map(([key, value]) => (
-                    <MetadataRow
-                      key={key}
-                      label={FRIENDLY_KEYS[key]}
-                      value={formatValue(key, value)}
-                    />
-                  ))}
+                  {metadataEntries.map(([key, value]) => {
+                    const formatted = formatValue(key, value);
+                    return (
+                      <MetadataRow
+                        key={key}
+                        label={FRIENDLY_KEYS[key]}
+                        value={formatted.content}
+                        isNumeric={formatted.isNumeric}
+                      />
+                    );
+                  })}
                 </div>
               )}
 
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <MaterialSymbol icon="schedule" size={14} />
-                <span>{formatDateTime(log.created_at)}</span>
+                <span className="font-mono tabular-nums">
+                  {formatDateTime(log.created_at)}
+                </span>
               </div>
             </div>
           </>

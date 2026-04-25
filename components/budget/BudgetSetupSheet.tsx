@@ -2,6 +2,7 @@
 
 import { Drawer } from "vaul";
 import { useEffect, useRef, useState } from "react";
+import { CurrencyText } from "@/components/ui/CurrencyText";
 import { useHaptic } from "@/lib/hooks/useHaptic";
 import { useEnqueue } from "@/lib/hooks/useSync";
 import { getDB } from "@/lib/db";
@@ -496,7 +497,7 @@ export function BudgetSetupSheet({
                 {/* Total Budget */}
                 <div>
                   <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    Total Budget ₹
+                    Total Budget <span className="currency-symbol">₹</span>
                   </label>
                   <input
                     ref={totalBudgetRef}
@@ -521,7 +522,9 @@ export function BudgetSetupSheet({
                         />
                       </div>
                       <div className="flex justify-between text-[10px] tabular-nums text-muted-foreground">
-                        <span>{fmt(totalAllocated)} allocated</span>
+                        <span>
+                          <CurrencyText value={totalAllocated} /> allocated
+                        </span>
                         <span
                           className={
                             isOverAllocated
@@ -530,8 +533,17 @@ export function BudgetSetupSheet({
                           }
                         >
                           {isOverAllocated
-                            ? `${fmt(Math.abs(leftToAllocate))} over`
-                            : `${fmt(leftToAllocate)} left`}
+                            ? (
+                                <>
+                                  <CurrencyText value={Math.abs(leftToAllocate)} />{" "}
+                                  over
+                                </>
+                              )
+                            : (
+                                <>
+                                  <CurrencyText value={leftToAllocate} /> left
+                                </>
+                              )}
                         </span>
                       </div>
                     </div>
@@ -693,7 +705,7 @@ function CategoryCard({
           placeholder="Category name"
         />
         <div className="flex items-center gap-1 shrink-0">
-          <span className="text-xs text-muted-foreground">₹</span>
+          <span className="currency-symbol text-muted-foreground">₹</span>
           <input
             type="number"
             inputMode="decimal"

@@ -3,6 +3,7 @@ import { getDashboardData } from "@/lib/actions/dashboard";
 import { updateBudgetTotal, getCategoryItems, quickLogSpend } from "@/lib/actions/budget";
 import { getDB } from "@/lib/db";
 import { useEnqueue } from "@/lib/hooks/useSync";
+import { computeMonthlyHistory } from "@/lib/utils/netWorthHistory";
 
 export const DASHBOARD_KEY = ["dashboard"] as const;
 
@@ -49,21 +50,22 @@ export async function getDashboardFromIDB() {
     };
   }
 
-  const netWorthHistory = await db.net_worth_snapshots
-    .orderBy("snapshot_date")
-    .limit(12)
-    .toArray();
-
   const goals = await db.goals.orderBy("created_at").toArray();
+
+  // Compute monthly net worth from asset_value_history (same as net worth page).
+  // This stays accurate even when asset values are updated without add/delete.
+  const allHistory = await db.asset_value_history.toArray();
+  const debts = await db.debts.toArray();
+  const totalLiabilities = debts
+    .filter((d) => !d.is_closed && d.type !== "lent")
+    .reduce((sum, d) => sum + (Number(d.principal) - Number(d.total_paid)), 0);
+  const netWorthHistory = computeMonthlyHistory(allHistory, totalLiabilities, 12);
 
   return {
     budget: formattedBudget,
     categories: summaryCategories,
     goals,
-    netWorthHistory: netWorthHistory.map((s) => ({
-      net_worth: s.net_worth,
-      snapshot_date: s.snapshot_date,
-    })),
+    netWorthHistory,
   };
 }
 
@@ -138,6 +140,8 @@ export function useAddGoal() {
         icon: null,
         target_amount: targetAmount,
         current_amount: 0,
+        notes: null,
+        priority: 0,
         created_at: now,
         updated_at: now,
       });

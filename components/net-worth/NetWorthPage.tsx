@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { CurrencyText } from "@/components/ui/CurrencyText";
 import NetWorthEmptyState from "./NetWorthEmptyState";
 import { AddAssetSheet } from "./AddAssetSheet";
 import { AssetDetailSheet, type AssetDetail } from "./AssetDetailSheet";
 import { useHaptic } from "@/lib/hooks/useHaptic";
-import { computeMonthlyGrowth } from "@/lib/hooks/useAssetHistory";
 
 interface Asset {
   id: string;
@@ -15,30 +15,16 @@ interface Asset {
   category_name: string;
   category_icon: string;
   value: number;
+  invested_amount?: number;
 }
 
 interface NetWorthData {
   assets: Asset[];
   totalLiabilities: number;
+  netWorthHistory?: { net_worth: number | string; snapshot_date: string }[];
 }
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function formatCurrencyFull(value: number) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    minimumFractionDigits: 2,
-  }).format(value);
-}
-
+// ── Existing pie chart — unchanged ─────────────────────────────────────────────
 function PieChart({ assets, totalAssets }: { assets: Asset[]; totalAssets: number }) {
   const r = 40;
   const circ = 2 * Math.PI * r;
@@ -107,16 +93,149 @@ function PieChart({ assets, totalAssets }: { assets: Asset[]; totalAssets: numbe
   );
 }
 
+// ── Monthly net worth variation chart ──────────────────────────────────────────
+function NetWorthVariationChart({
+  history,
+}: {
+  history: { net_worth: number | string; snapshot_date: string }[];
+}) {
+  const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const fmtMonth = (d: string) => {
+    const [, m] = d.split("-");
+    return MONTH_LABELS[parseInt(m, 10) - 1] ?? d;
+  };
+
+  if (history.length < 2) {
+    return (
+      <div className="px-7 py-5">
+        <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground mb-3">
+          Net worth trend
+        </div>
+        <div className="h-[80px] flex items-center justify-center border border-dashed" style={{ borderColor: "var(--border)" }}>
+          <span className="font-mono text-[10px] tracking-[0.12em] uppercase" style={{ color: "var(--dimmer)" }}>
+            Building history…
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  const values = history.map((d) => Number(d.net_worth));
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const W = 400;
+  const H = 96;
+  const pad = 8;
+
+  const pts = values.map((v, i) => ({
+    x: pad + (i / (values.length - 1)) * (W - pad * 2),
+    y: pad + (1 - (v - min) / range) * (H - pad * 2),
+  }));
+
+  const linePath = `M ${pts.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" L ")}`;
+  const areaPath = `M ${pts.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" L ")} L ${W - pad},${H} L ${pad},${H} Z`;
+
+  // zero line
+  const zeroY = pad + (1 - (0 - min) / range) * (H - pad * 2);
+  const showZero = min < 0 && max > 0;
+
+  // up to 6 evenly spaced month labels
+  const labelCount = Math.min(history.length, 6);
+  const labelIndices = Array.from({ length: labelCount }, (_, i) =>
+    Math.round(i * (history.length - 1) / (labelCount - 1))
+  );
+
+  return (
+    <div className="px-7 py-5">
+      <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground mb-3">
+        Net worth trend
+      </div>
+      <div className="w-full h-[96px]">
+        <svg viewBox={`0 0 ${W} ${H}`} fill="none" preserveAspectRatio="none" className="w-full h-full">
+          <defs>
+            <linearGradient id="nwAreaGrad" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="var(--foreground)" stopOpacity="0.10" />
+              <stop offset="100%" stopColor="var(--foreground)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {showZero && (
+            <line
+              x1={pad} x2={W - pad} y1={zeroY} y2={zeroY}
+              stroke="var(--dimmer)" strokeWidth="0.5" strokeDasharray="3 4"
+            />
+          )}
+          <path d={areaPath} fill="url(#nwAreaGrad)" />
+          <path d={linePath} stroke="var(--foreground)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="2.5" fill="var(--foreground)" />
+        </svg>
+      </div>
+      <div className="flex justify-between mt-1.5">
+        {labelIndices.map((idx) => (
+          <span key={idx} className="font-mono text-[9px] tracking-[0.08em]" style={{ color: "var(--dimmer)" }}>
+            {fmtMonth(history[idx].snapshot_date)}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Segmented progress bar ─────────────────────────────────────────────────────
+function SegBar({ pct }: { pct: number }) {
+  const count = 20;
+  return (
+    <div className="flex gap-[2px] mt-2.5">
+      {Array.from({ length: count }).map((_, j) => (
+        <div
+          key={j}
+          className="flex-1"
+          style={{
+            height: 3,
+            background: j / count < pct ? "var(--foreground)" : "var(--progress-empty)",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
 export default function NetWorthPage({ data }: { data: NetWorthData }) {
   const haptic = useHaptic();
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [addDefaultCategoryId, setAddDefaultCategoryId] = useState<string | null>(null);
-  const [selectedAsset, setSelectedAsset] = useState<AssetDetail | null>(null);
-  const [growth, setGrowth] = useState<{ amount: number; percent: number } | null>(null);
+  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
 
   const assets = data.assets;
   const totalAssets = assets.reduce((s, a) => s + a.value, 0);
   const netWorth = totalAssets - data.totalLiabilities;
+  const history = data.netWorthHistory ?? [];
+
+  // Derive from live data so sheet always reflects latest values
+  const selectedAsset = selectedAssetId
+    ? (() => {
+        const a = assets.find(x => x.id === selectedAssetId);
+        if (!a) return null;
+        return {
+          id: a.id,
+          name: a.name,
+          icon: a.icon ?? null,
+          category_id: a.category_id,
+          category_name: a.category_name,
+          category_icon: a.category_icon,
+          value: a.value,
+          invested_amount: a.invested_amount ?? a.value,
+        } satisfies AssetDetail;
+      })()
+    : null;
+
+  const now = new Date();
+  const monthLabel = `${MONTHS[now.getMonth()].substring(0, 3)} ${now.getFullYear()}`;
 
   // Group assets by category
   const categoryGroups = assets.reduce<Map<string, { name: string; icon: string; id: string | null; assets: Asset[] }>>(
@@ -136,23 +255,9 @@ export default function NetWorthPage({ data }: { data: NetWorthData }) {
     new Map()
   );
 
-  // Compute monthly growth from IDB history
-  useEffect(() => {
-    if (totalAssets === 0) return;
-    computeMonthlyGrowth(totalAssets).then(setGrowth);
-  }, [totalAssets]);
-
   function openAssetDetail(asset: Asset) {
     haptic.light();
-    setSelectedAsset({
-      id: asset.id,
-      name: asset.name,
-      icon: asset.icon ?? null,
-      category_id: asset.category_id,
-      category_name: asset.category_name,
-      category_icon: asset.category_icon,
-      value: asset.value,
-    });
+    setSelectedAssetId(asset.id);
   }
 
   function openAddSheet(categoryId?: string | null) {
@@ -164,10 +269,23 @@ export default function NetWorthPage({ data }: { data: NetWorthData }) {
   if (assets.length === 0) {
     return (
       <>
-        <header className="px-7 pt-14 pb-[18px] border-b border-border">
-          <div className="font-display text-[32px] leading-none tracking-[-0.02em] text-foreground">Net Worth</div>
-          <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground mt-2">Asset Tracker</div>
-        </header>
+        {/* Masthead */}
+        <div className="px-7 pt-16 pb-[18px] flex items-end justify-between">
+          <div>
+            <div className="font-display text-[32px] leading-none tracking-[-0.02em] text-foreground">Net Worth</div>
+            <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground mt-2">
+              Ledger · {monthLabel}
+            </div>
+          </div>
+          <button
+            onClick={() => openAddSheet()}
+            className="size-[34px] rounded-full border border-border flex items-center justify-center text-foreground hover:border-foreground transition-colors"
+            aria-label="Add asset"
+          >
+            <span className="font-sans text-lg font-light leading-none">+</span>
+          </button>
+        </div>
+        <div className="h-px bg-border mx-7" />
         <main className="p-4">
           <NetWorthEmptyState onAddAsset={() => openAddSheet()} />
         </main>
@@ -178,138 +296,175 @@ export default function NetWorthPage({ data }: { data: NetWorthData }) {
 
   return (
     <>
-      {/* Header */}
-      <header className="px-7 pt-14 pb-[18px] border-b border-border">
-        <div className="flex items-end justify-between">
-          <div>
-            <div className="font-display text-[32px] leading-none tracking-[-0.02em] text-foreground">Net Worth</div>
-            <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground mt-2">Asset Tracker</div>
+      {/* Masthead */}
+      <div className="px-7 pt-6 pb-[18px] flex items-end justify-between">
+        <div>
+          <div className="font-display text-[32px] leading-none tracking-[-0.02em] text-foreground">Net Worth</div>
+          <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground mt-2">
+            Ledger · {monthLabel}
           </div>
-          <button
-            onClick={() => openAddSheet()}
-            className="border border-foreground px-4 py-2 font-mono text-[9px] tracking-[0.14em] uppercase text-foreground hover:bg-foreground hover:text-background transition-colors active:scale-95"
-          >
-            + Add
-          </button>
         </div>
-      </header>
+        <button
+          onClick={() => openAddSheet()}
+          className="size-[34px] rounded-full border border-border flex items-center justify-center text-foreground hover:border-foreground transition-colors shrink-0"
+          aria-label="Add asset"
+        >
+          <span className="font-sans text-lg font-light leading-none">+</span>
+        </button>
+      </div>
 
-      <main className="p-4 space-y-6">
-        <div className="md:grid md:grid-cols-[1fr_1.5fr] md:gap-x-8">
-          {/* Left column: summary + chart */}
-          <div className="space-y-6 mb-6 md:mb-0">
-            {/* Summary Card */}
-            <div className="bg-card p-6 rounded-xl border border-border">
-              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Total Net Worth</p>
-              <h2 className="text-4xl font-bold tabular-nums tracking-tighter mb-1 text-foreground">
-                {formatCurrencyFull(netWorth)}
-              </h2>
-              {growth && (
-                <div className={`flex items-center gap-1 mb-4 ${growth.amount >= 0 ? "text-green-500" : "text-red-500"}`}>
-                  <span className="material-symbols-outlined text-[14px]">
-                    {growth.amount >= 0 ? "trending_up" : "trending_down"}
-                  </span>
-                  <span className="text-xs font-semibold tabular-nums">
-                    {growth.amount >= 0 ? "+" : ""}{formatCurrency(growth.amount)} ({growth.percent >= 0 ? "+" : ""}{growth.percent}%)
-                  </span>
-                  <span className="text-xs text-muted-foreground">vs 30 days ago</span>
-                </div>
-              )}
-              <div className="space-y-3 pt-4 border-t border-border">
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground text-sm">Total Assets</span>
-                  <span className="font-semibold tabular-nums text-sm text-foreground">{formatCurrency(totalAssets)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground text-sm">Total Liabilities</span>
-                  <span className="font-semibold tabular-nums text-sm text-foreground">-{formatCurrency(data.totalLiabilities)}</span>
-                </div>
+      <div className="h-px bg-border mx-7" />
+
+      {/* Hero — total net worth */}
+      <div className="px-7 pt-[26px] pb-[22px]">
+        <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
+          Total net worth
+        </div>
+        <div
+          className="font-display leading-[0.95] tracking-[-0.025em] mt-2.5 text-foreground"
+          style={{ fontSize: 72 }}
+        >
+          <CurrencyText value={netWorth} />
+        </div>
+        <div className="flex gap-[18px] mt-3.5 font-mono text-[11px] text-muted-foreground flex-wrap">
+          <span className="whitespace-nowrap">
+            ↳ assets <CurrencyText value={totalAssets} />
+          </span>
+          <span className="text-foreground whitespace-nowrap">
+            · liab <CurrencyText value={-data.totalLiabilities} />
+          </span>
+        </div>
+      </div>
+
+      <div className="h-px bg-border mx-7" />
+
+      {/* Assets / Liabilities split */}
+      <div className="px-7 py-5 grid grid-cols-2">
+        <div>
+          <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
+            Total assets
+          </div>
+          <div className="mt-1">
+            <CurrencyText value={totalAssets} className="text-[32px] leading-none tracking-[-0.02em] text-foreground" />
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
+            Total liabilities
+          </div>
+          <div className="mt-1">
+            <CurrencyText value={-data.totalLiabilities} className="text-[32px] leading-none tracking-[-0.02em] text-foreground" />
+          </div>
+        </div>
+      </div>
+
+      {/* Monthly net worth trend chart */}
+      <NetWorthVariationChart history={history} />
+
+      <div className="h-px bg-border mx-7" />
+
+      {/* Asset distribution */}
+      <div className="px-7 pt-5 pb-3 flex justify-between items-baseline">
+        <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
+          Asset distribution
+        </div>
+        <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
+          {assets.length} holdings
+        </div>
+      </div>
+
+      {/* Existing pie chart — unchanged */}
+      <div className="px-7 pb-6 flex justify-center">
+        <PieChart assets={assets} totalAssets={totalAssets} />
+      </div>
+
+      <div className="h-px bg-border mx-7" />
+
+      {/* Category groups — ledger style */}
+      {Array.from(categoryGroups.values()).map((group) => {
+        const groupTotal = group.assets.reduce((s, a) => s + a.value, 0);
+        return (
+          <div key={group.id ?? "uncategorized"}>
+            {/* Group header */}
+            <div className="px-7 pt-5 pb-3 flex justify-between items-baseline">
+              <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
+                {group.name}
+              </div>
+              <div className="font-mono text-[12px] tabular-nums text-foreground">
+                <CurrencyText value={groupTotal} />
               </div>
             </div>
 
-            {/* Asset Distribution */}
-            <section className="space-y-4">
-              <h3 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                Asset Distribution
-              </h3>
-              <div className="bg-card p-6 rounded-xl border border-border flex justify-center">
-                <PieChart assets={assets} totalAssets={totalAssets} />
-              </div>
-            </section>
-          </div>
-
-          {/* Right column: assets grouped by category */}
-          <div className="space-y-5">
-            {Array.from(categoryGroups.values()).map((group) => {
-              const groupTotal = group.assets.reduce((s, a) => s + a.value, 0);
-              return (
-                <section key={group.id ?? "uncategorized"}>
-                  {/* Category header */}
-                  <div className="flex items-center justify-between mb-2.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm leading-none">{group.icon}</span>
-                      <h3 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                        {group.name}
-                      </h3>
-                    </div>
-                    <span className="text-xs font-semibold tabular-nums text-muted-foreground">
-                      {formatCurrency(groupTotal)}
-                    </span>
-                  </div>
-
-                  <div className="space-y-2">
-                    {group.assets.map((asset) => (
-                      <button
-                        key={asset.id}
-                        onClick={() => openAssetDetail(asset)}
-                        className="w-full flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:bg-muted active:scale-[0.99] transition-all text-left"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-                            {asset.icon ? (
-                              <span className="text-xl">{asset.icon}</span>
-                            ) : (
-                              <span className="text-lg leading-none">{asset.category_icon}</span>
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm text-foreground truncate">{asset.name}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">{asset.category_name}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0 ml-3">
-                          <p className="font-semibold tabular-nums text-sm text-foreground">
-                            {formatCurrency(asset.value)}
-                          </p>
-                          <span className="material-symbols-outlined text-muted-foreground text-[18px]">chevron_right</span>
-                        </div>
-                      </button>
-                    ))}
-
-                    {/* Quick add within category */}
-                    <button
-                      onClick={() => openAddSheet(group.id)}
-                      className="w-full flex items-center gap-2 py-3 px-4 rounded-xl border border-dashed border-border text-muted-foreground hover:bg-muted/50 transition-colors text-sm"
+            {/* Asset rows */}
+            <div className="px-7">
+              {group.assets.map((asset, i) => {
+                const pct = groupTotal > 0 ? asset.value / groupTotal : 0;
+                return (
+                  <button
+                    key={asset.id}
+                    onClick={() => openAssetDetail(asset)}
+                    className="w-full text-left"
+                  >
+                    <div
+                      style={{
+                        paddingTop: 14,
+                        paddingBottom: 14,
+                        borderTop: i === 0 ? "1px solid var(--border)" : "none",
+                        borderBottom: "1px solid var(--border)",
+                      }}
                     >
-                      <span className="material-symbols-outlined text-[16px]">add</span>
-                      <span className="text-xs font-medium">Add to {group.name}</span>
-                    </button>
-                  </div>
-                </section>
-              );
-            })}
+                      <div className="flex justify-between items-baseline gap-3">
+                        <div className="flex items-baseline gap-2.5 min-w-0">
+                          <span className="font-mono text-[10px] shrink-0" style={{ color: "var(--dimmer)" }}>
+                            {String(i + 1).padStart(2, "0")}
+                          </span>
+                          <span className="text-[17px] font-medium tracking-[-0.01em] text-foreground truncate">
+                            {asset.name}
+                          </span>
+                          <span className="font-mono text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">
+                            · {asset.category_name}
+                          </span>
+                        </div>
+                        <div className="font-mono text-[12px] tabular-nums shrink-0 whitespace-nowrap text-foreground">
+                          <CurrencyText value={asset.value} />
+                        </div>
+                      </div>
+                      <SegBar pct={pct} />
+                    </div>
+                  </button>
+                );
+              })}
 
-            {/* General add button */}
-            <button
-              onClick={() => openAddSheet()}
-              className="w-full flex items-center justify-center gap-2 py-4 bg-foreground text-background rounded-xl font-bold text-sm tracking-tight active:scale-[0.98] transition-transform"
-            >
-              <span className="material-symbols-outlined text-lg">add</span>
-              ADD ASSET
-            </button>
+              {/* Add to category */}
+              <button
+                onClick={() => openAddSheet(group.id)}
+                className="w-full py-[14px] flex items-center gap-2.5 font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground hover:text-foreground transition-colors"
+                style={{ borderBottom: "1px solid var(--border)" }}
+              >
+                <span className="text-foreground">+</span>
+                <span>Add to {group.name}</span>
+              </button>
+            </div>
           </div>
-        </div>
-      </main>
+        );
+      })}
+
+      {/* Bottom spacer for mobile nav */}
+      <div className="h-8" />
+
+      {/* Sticky footer CTA */}
+      <div
+        className="sticky bottom-[72px] px-[22px] pb-4 pt-3 bg-background"
+        style={{ borderTop: "1px solid var(--border)" }}
+      >
+        <button
+          onClick={() => openAddSheet()}
+          className="w-full py-[14px] flex items-center justify-center gap-2.5 font-mono text-[11px] tracking-[0.18em] uppercase text-foreground border border-foreground hover:bg-foreground hover:text-background transition-colors active:scale-[0.99]"
+        >
+          <span>+</span>
+          <span>Add asset</span>
+        </button>
+      </div>
 
       <AddAssetSheet
         open={addSheetOpen}
@@ -319,7 +474,7 @@ export default function NetWorthPage({ data }: { data: NetWorthData }) {
 
       <AssetDetailSheet
         asset={selectedAsset}
-        onClose={() => setSelectedAsset(null)}
+        onClose={() => setSelectedAssetId(null)}
       />
     </>
   );

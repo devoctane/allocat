@@ -56,7 +56,7 @@ export default function OnboardingFlow() {
               <div className="h-0.5 w-12 bg-white"></div>
             </div>
             <div className="text-right">
-              <p className="font-label text-xs uppercase tracking-[0.2em] text-gray-500">System.v.01</p>
+              <p className="font-mono text-xs uppercase tracking-[0.2em] text-gray-500 tabular-nums">System.v.01</p>
             </div>
           </div>
               <img src="/allocat-logo.png" alt="logo" className="w-12 h-12 p-1 bg-white rounded-full" />
@@ -102,7 +102,7 @@ export default function OnboardingFlow() {
       {step === 2 && (
         <main className="relative min-h-[100dvh] pt-20 pb-32 px-6 max-w-7xl mx-auto z-10 flex flex-col justify-center">
           <section className="mb-16 mt-8">
-            <p className="text-xs font-bold tracking-[0.2em] text-gray-500 uppercase mb-4">Phase 02 / The Architecture</p>
+            <p className="font-mono text-xs font-bold tracking-[0.2em] text-gray-500 uppercase mb-4 tabular-nums">Phase 02 / The Architecture</p>
             <h1 className="text-5xl md:text-7xl font-black tracking-tighter leading-none max-w-4xl">
               Budget, Net Worth, <br/>and Debt
             </h1>
@@ -170,7 +170,7 @@ export default function OnboardingFlow() {
         <main className="relative min-h-[100dvh] flex flex-col justify-center px-6 max-w-xl mx-auto z-10">
           <section className="space-y-4">
             <div className="inline-block border-l-4 border-white pl-4 mb-8">
-              <span className="text-xs uppercase tracking-[0.3em] font-bold text-gray-500">Step 03 — Final</span>
+              <span className="font-mono text-xs uppercase tracking-[0.3em] font-bold text-gray-500 tabular-nums">Step 03 — Final</span>
             </div>
             <h1 className="text-6xl md:text-7xl font-black tracking-tighter leading-[0.9] text-white">
               READY TO <br/> START.

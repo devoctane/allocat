@@ -2,6 +2,7 @@
 
 import { Drawer } from "vaul";
 import { useEffect, useRef, useState } from "react";
+import { CurrencyText } from "@/components/ui/CurrencyText";
 import { useHaptic } from "@/lib/hooks/useHaptic";
 
 export const NEW_ITEM_ID = "__new__";
@@ -208,7 +209,7 @@ export function ItemDetailSheet({
                         Category budget
                       </span>
                       <span className="text-xs font-semibold tabular-nums text-foreground">
-                        {fmt(category.allocation)}
+                        <CurrencyText value={category.allocation} />
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -216,7 +217,7 @@ export function ItemDetailSheet({
                         Used by other items
                       </span>
                       <span className="text-xs tabular-nums text-muted-foreground">
-                        − {fmt(category.otherItemsPlanned)}
+                        − <CurrencyText value={category.otherItemsPlanned} />
                       </span>
                     </div>
                     <div className="border-t border-border/60 pt-2 flex justify-between items-center">
@@ -229,8 +230,12 @@ export function ItemDetailSheet({
                         }`}
                       >
                         {isOverAllocation
-                          ? `−${fmt(Math.abs(remaining!))}`
-                          : fmt(remaining!)}
+                          ? (
+                              <>
+                                −<CurrencyText value={Math.abs(remaining!)} />
+                              </>
+                            )
+                          : <CurrencyText value={remaining!} />}
                       </span>
                     </div>
                   </div>
@@ -246,7 +251,8 @@ export function ItemDetailSheet({
                   </div>
                   <div className="flex justify-between mt-1.5 text-[10px] tabular-nums text-muted-foreground">
                     <span>
-                      {fmt(category.otherItemsPlanned + plannedNum)} allocated
+                      <CurrencyText value={category.otherItemsPlanned + plannedNum} />{" "}
+                      allocated
                     </span>
                     <span>{usedPct}% of budget</span>
                   </div>
@@ -305,7 +311,7 @@ export function ItemDetailSheet({
                         : "text-muted-foreground/40"
                     }`}
                   >
-                    Planned ₹
+                    Planned <span className="currency-symbol">₹</span>
                   </label>
                   <div className="relative">
                     <input
@@ -334,17 +340,17 @@ export function ItemDetailSheet({
                     </p>
                   ) : isOverAllocation ? (
                     <p className="text-[10px] text-red-400">
-                      Over by {fmt(Math.abs(remaining!))}
+                      Over by <CurrencyText value={Math.abs(remaining!)} />
                     </p>
                   ) : remaining !== null && plannedNum > 0 ? (
                     <p className="text-[10px] text-muted-foreground">
-                      {fmt(remaining)} still available
+                      <CurrencyText value={remaining} /> still available
                     </p>
                   ) : null}
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    Spent ₹
+                    Spent <span className="currency-symbol">₹</span>
                   </label>
                   <input
                     type="number"

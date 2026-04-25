@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { CurrencyText } from "@/components/ui/CurrencyText";
 import { InlineEditableText } from "@/components/ui/InlineEditableText";
 import { InlineEditableNumber } from "@/components/ui/InlineEditableNumber";
 import EmojiPickerModal from "@/components/ui/EmojiPickerModal";
@@ -410,11 +411,10 @@ function CategoryDetailContent({
             {/* Budget (editable) */}
             <div className="flex flex-col gap-1 pr-4 border-r border-border">
               <span className="font-mono text-[9px] tracking-[0.14em] uppercase text-muted-foreground">Budget</span>
-              <div className="font-display text-[22px] leading-none tracking-[-0.02em] text-foreground tabular-nums mt-1">
+              <div className="text-[22px] leading-none tracking-[-0.02em] text-foreground tabular-nums mt-1">
                 <InlineEditableNumber
                   value={categoryAllocation}
                   onSave={handleUpdateCategoryAllocation}
-                  className="font-display"
                 />
               </div>
               <span className="font-mono text-[9px] text-muted-foreground mt-0.5">tap to edit</span>
@@ -423,19 +423,20 @@ function CategoryDetailContent({
             {/* Spent */}
             <div className="flex flex-col gap-1 px-4 border-r border-border">
               <span className="font-mono text-[9px] tracking-[0.14em] uppercase text-muted-foreground">Spent</span>
-              <div className="font-display text-[22px] leading-none tracking-[-0.02em] text-foreground tabular-nums mt-1">
-                {fmt(totalActual)}
-              </div>
+              <CurrencyText
+                value={totalActual}
+                className="text-[22px] leading-none tracking-[-0.02em] text-foreground mt-1"
+              />
             </div>
 
             {/* Left */}
             <div className="flex flex-col gap-1 pl-4">
               <span className="font-mono text-[9px] tracking-[0.14em] uppercase text-muted-foreground">Left</span>
               <div
-                className="font-display text-[22px] leading-none tracking-[-0.02em] tabular-nums mt-1"
+                className="text-[22px] leading-none tracking-[-0.02em] tabular-nums mt-1"
                 style={{ color: left < 0 ? "#ef4444" : "var(--foreground)" }}
               >
-                {fmt(left)}
+                <CurrencyText value={left} />
               </div>
             </div>
           </div>
@@ -448,7 +449,8 @@ function CategoryDetailContent({
                 {Math.round(pct * 100)}% used
               </span>
               <span className="font-mono text-[9px] text-muted-foreground tabular-nums">
-                {fmt(totalActual)} / {fmt(categoryAllocation)}
+                <CurrencyText value={totalActual} /> /{" "}
+                <CurrencyText value={categoryAllocation} />
               </span>
             </div>
           </div>
@@ -456,11 +458,20 @@ function CategoryDetailContent({
           {/* Budget context */}
           <div className="px-7 py-4 space-y-1">
             <p className="font-mono text-[10px] tabular-nums text-muted-foreground">
-              Total {fmt(data.totalBudget)} · Other {fmt(data.otherAllocated)}
+              Total <CurrencyText value={data.totalBudget} /> · Other{" "}
+              <CurrencyText value={data.otherAllocated} />
             </p>
             <p className="font-mono text-[10px] tabular-nums text-muted-foreground">
-              {fmt(totalPlanned)} planned
-              {categoryAllocation > 0 ? ` · ${fmt(Math.max(0, categoryAllocation - totalPlanned))} unplanned` : ""}
+              <CurrencyText value={totalPlanned} /> planned
+              {categoryAllocation > 0 ? (
+                <>
+                  {" "}·{" "}
+                  <CurrencyText
+                    value={Math.max(0, categoryAllocation - totalPlanned)}
+                  />{" "}
+                  unplanned
+                </>
+              ) : null}
             </p>
             {data.totalBudget <= 0 ? (
               <button
@@ -472,11 +483,13 @@ function CategoryDetailContent({
               </button>
             ) : remainingBudgetCapacity < 0 ? (
               <p className="font-mono text-[10px] text-red-400">
-                {fmt(Math.abs(remainingBudgetCapacity))} over total budget cap.
+                <CurrencyText value={Math.abs(remainingBudgetCapacity)} /> over
+                {" "}total budget cap.
               </p>
             ) : (
               <p className="font-mono text-[10px] text-muted-foreground">
-                {fmt(remainingBudgetCapacity)} still unallocated.
+                <CurrencyText value={remainingBudgetCapacity} /> still
+                {" "}unallocated.
               </p>
             )}
             {validationError && (
@@ -532,9 +545,13 @@ function CategoryDetailContent({
                         </span>
                       </div>
                       <div className="font-mono text-[10px] text-muted-foreground tabular-nums">
-                        <span>{fmt(item.actual)} spent</span>
+                        <span>
+                          <CurrencyText value={item.actual} /> spent
+                        </span>
                         {item.planned > 0 && (
-                          <span style={{ color: "var(--dimmer)" }}> of {fmt(item.planned)}</span>
+                          <span style={{ color: "var(--dimmer)" }}>
+                            {" "}of <CurrencyText value={item.planned} />
+                          </span>
                         )}
                       </div>
                       {item.planned > 0 && (

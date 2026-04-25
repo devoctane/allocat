@@ -12,14 +12,10 @@ import { NET_WORTH_KEY } from "@/lib/hooks/useNetWorth";
 import { DEBT_KEY } from "@/lib/hooks/useDebt";
 
 /**
- * Warms the React Query in-memory cache for all main page queries
- * immediately after IDB hydration is complete.
- *
- * Each queryFn mirrors the hook's queryFn exactly — reads from IDB first,
- * falls back to the server only if IDB is empty (e.g. truly first launch).
- *
- * Since staleTime is Infinity globally, these cached results will be served
- * instantly when the user navigates to each tab — no skeleton loaders.
+ * Populates the React Query in-memory cache from IDB after hydration.
+ * Uses fetchQuery (not prefetchQuery) so it ALWAYS re-runs after each
+ * hydrateAllTables call — staleTime:Infinity would cause prefetchQuery
+ * to skip already-cached entries, serving stale data across page loads.
  */
 export async function prefetchAllQueries(qc: QueryClient): Promise<void> {
   const now = new Date();
@@ -28,7 +24,7 @@ export async function prefetchAllQueries(qc: QueryClient): Promise<void> {
 
   await Promise.all([
     // Dashboard
-    qc.prefetchQuery({
+    qc.fetchQuery({
       queryKey: DASHBOARD_KEY,
       queryFn: async () => {
         const local = await getDashboardFromIDB();
@@ -38,7 +34,7 @@ export async function prefetchAllQueries(qc: QueryClient): Promise<void> {
     }),
 
     // Budget (current month)
-    qc.prefetchQuery({
+    qc.fetchQuery({
       queryKey: budgetKey(month, year),
       queryFn: async () => {
         const local = await getBudgetFromIDB(month, year);
@@ -48,7 +44,7 @@ export async function prefetchAllQueries(qc: QueryClient): Promise<void> {
     }),
 
     // Net Worth
-    qc.prefetchQuery({
+    qc.fetchQuery({
       queryKey: NET_WORTH_KEY,
       queryFn: async () => {
         const local = await getNetWorthFromIDB();
@@ -58,7 +54,7 @@ export async function prefetchAllQueries(qc: QueryClient): Promise<void> {
     }),
 
     // Debt
-    qc.prefetchQuery({
+    qc.fetchQuery({
       queryKey: DEBT_KEY,
       queryFn: async () => {
         const local = await getDebtFromIDB();

@@ -10,9 +10,9 @@ export default function ProfilePage() {
   const { data: profile } = useProfile();
 
   return (
-    <div className="pt-12 px-6 max-w-2xl mx-auto space-y-12 pb-32">
+    <div className="pt-6 px-6 max-w-2xl mx-auto space-y-12 pb-24">
       {/* Header Section */}
-      <header className="py-8 border-b border-border">
+      <header className=" border-b border-border">
         <div className="font-display text-[32px] leading-none tracking-[-0.02em] text-foreground">Profile</div>
         <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground mt-2">
           Financial Identity
@@ -40,11 +40,6 @@ export default function ProfilePage() {
             {profile?.email || ""}
           </p>
 
-          <div className="pt-4">
-            <button className="bg-primary text-primary-foreground px-6 py-3 font-bold text-xs uppercase tracking-widest hover:opacity-90 transition-opacity active:scale-95 duration-200">
-              Account Settings
-            </button>
-          </div>
         </div>
       </section>
 
@@ -70,38 +65,6 @@ export default function ProfilePage() {
             />
           </Link>
 
-          <button className="w-full flex justify-between items-center p-5 bg-card/50 border border-border hover:bg-muted transition-colors group">
-            <div className="flex items-center gap-4">
-              <MaterialSymbol icon="person_edit" className="text-muted-foreground" />
-              <span className="font-bold tracking-tight text-foreground">Edit Profile</span>
-            </div>
-            <MaterialSymbol
-              icon="chevron_right"
-              className="text-muted-foreground group-hover:translate-x-1 transition-transform"
-            />
-          </button>
-
-          <button className="w-full flex justify-between items-center p-5 bg-card/50 border border-border hover:bg-muted transition-colors group">
-            <div className="flex items-center gap-4">
-              <MaterialSymbol icon="shield" className="text-muted-foreground" />
-              <span className="font-bold tracking-tight text-foreground">Security & Passwords</span>
-            </div>
-            <MaterialSymbol
-              icon="chevron_right"
-              className="text-muted-foreground group-hover:translate-x-1 transition-transform"
-            />
-          </button>
-
-          <button className="w-full flex justify-between items-center p-5 bg-card/50 border border-border hover:bg-muted transition-colors group">
-            <div className="flex items-center gap-4">
-              <MaterialSymbol icon="notifications" className="text-muted-foreground" />
-              <span className="font-bold tracking-tight text-foreground">Notification Settings</span>
-            </div>
-            <MaterialSymbol
-              icon="chevron_right"
-              className="text-muted-foreground group-hover:translate-x-1 transition-transform"
-            />
-          </button>
         </div>
       </section>
 
@@ -112,40 +75,7 @@ export default function ProfilePage() {
           <div className="h-px bg-border flex-grow mb-2"></div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-1 bg-border rounded-lg overflow-hidden border border-border">
-          <ThemeSelector />
-
-          <div className="bg-card p-6 flex flex-col justify-between h-40 col-span-1">
-            <div className="flex justify-between items-start">
-              <MaterialSymbol icon="payments" className="text-foreground" />
-              <span className="font-mono font-bold text-foreground">USD</span>
-            </div>
-            <div>
-              <p className="font-bold text-foreground">Currency</p>
-              <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">
-                United States Dollar
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-card p-6 flex flex-col justify-between h-40 col-span-1">
-            <div className="flex justify-between items-start">
-              <MaterialSymbol icon="lock" className="text-foreground" />
-              <span className="text-[10px] bg-muted text-foreground px-2 py-1 uppercase font-bold tracking-tighter">
-                Encrypted
-              </span>
-            </div>
-            <div className="flex justify-between items-end">
-              <div>
-                <p className="font-bold text-foreground">Data Privacy</p>
-                <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">
-                  Manage shared data and analytics
-                </p>
-              </div>
-              <MaterialSymbol icon="arrow_outward" className="text-muted-foreground" />
-            </div>
-          </div>
-        </div>
+        <ThemeSelector />
       </section>
 
       {/* Actions */}
@@ -160,8 +90,8 @@ export default function ProfilePage() {
         </form>
 
         <footer className="text-center space-y-1 opacity-40">
-          <p className="text-[0.6rem] font-bold uppercase tracking-[0.4em] text-foreground">v1.0.4</p>
-          <p className="text-[0.5rem] font-medium tracking-widest text-foreground">AlloCat © 2026</p>
+          <p className="text-[0.6rem] font-mono font-bold uppercase tracking-[0.4em] text-foreground tabular-nums">v1.0.4</p>
+          <p className="text-[0.5rem] font-mono font-medium tracking-widest text-foreground tabular-nums">AlloCat © 2026</p>
         </footer>
       </section>
     </div>

@@ -3,7 +3,23 @@
 import { createClient } from "@/lib/supabase/server";
 import { logActivity, fmt } from "@/lib/server/activity-logger";
 
-export async function addGoal(name: string, targetAmount: number) {
+export async function getGoalsData() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const { data, error } = await supabase
+    .from("goals")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("priority")
+    .order("created_at");
+
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+export async function addGoal(name: string, targetAmount: number, notes?: string | null, priority?: number) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
@@ -15,6 +31,8 @@ export async function addGoal(name: string, targetAmount: number) {
       name,
       target_amount: targetAmount,
       current_amount: 0,
+      notes: notes ?? null,
+      priority: priority ?? 0,
     })
     .select()
     .single();
@@ -32,7 +50,7 @@ export async function addGoal(name: string, targetAmount: number) {
   return data;
 }
 
-export async function updateGoal(id: string, updates: { name?: string; current_amount?: number; target_amount?: number }) {
+export async function updateGoal(id: string, updates: { name?: string; current_amount?: number; target_amount?: number; notes?: string | null; priority?: number }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");

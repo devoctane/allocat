@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { logActivity, fmt } from "@/lib/server/activity-logger";
+import { calcTotalRepayable } from "@/lib/utils/debt-calc";
 
 export async function getDebtData() {
   const supabase = await createClient();
@@ -27,6 +28,9 @@ export async function getDebtData() {
     totalPaid: Number(d.total_paid),
     expectedPayoffDate: d.expected_payoff_date,
     isClosed: d.is_closed,
+    interestType: (d.interest_type ?? "flat") as "flat" | "diminishing",
+    loanTenureMonths: d.loan_tenure_months ?? null,
+    totalRepayable: Number(d.total_repayable ?? d.principal),
   }));
 }
 
@@ -36,11 +40,15 @@ export async function addDebt(
   principal: number,
   interestRate: number,
   monthlyMin: number,
-  expectedPayoffDate?: string | null
+  expectedPayoffDate?: string | null,
+  interestType: "flat" | "diminishing" = "flat",
+  loanTenureMonths?: number | null
 ) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
+
+  const totalRepayable = calcTotalRepayable(principal, interestRate, loanTenureMonths ?? null, interestType);
 
   const { data, error } = await supabase
     .from("debts")
@@ -54,6 +62,9 @@ export async function addDebt(
       total_paid: 0,
       expected_payoff_date: expectedPayoffDate || null,
       is_closed: false,
+      interest_type: interestType,
+      loan_tenure_months: loanTenureMonths ?? null,
+      total_repayable: totalRepayable,
     })
     .select()
     .single();
@@ -75,6 +86,31 @@ export async function updateDebt(id: string, updates: any) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
+
+  // Recalculate total_repayable if any relevant field changed
+  const needsRecalc = (
+    updates.principal !== undefined ||
+    updates.interest_rate !== undefined ||
+    updates.loan_tenure_months !== undefined ||
+    updates.interest_type !== undefined
+  );
+
+  if (needsRecalc) {
+    const { data: current } = await supabase
+      .from("debts")
+      .select("principal, interest_rate, loan_tenure_months, interest_type")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .single();
+
+    if (current) {
+      const principal = updates.principal ?? Number(current.principal);
+      const rate = updates.interest_rate ?? Number(current.interest_rate);
+      const tenure = updates.loan_tenure_months !== undefined ? updates.loan_tenure_months : current.loan_tenure_months;
+      const iType = updates.interest_type ?? current.interest_type ?? "flat";
+      updates.total_repayable = calcTotalRepayable(principal, rate, tenure, iType);
+    }
+  }
 
   const { data, error } = await supabase
     .from("debts")
@@ -181,7 +217,10 @@ export async function makePayment(id: string, amount: number) {
   if (!debt) throw new Error("Debt not found");
 
   const newTotalPaid = Number(debt.total_paid) + Number(amount);
-  const isClosed = newTotalPaid >= Number(debt.principal);
+  const repayableTarget = Number(debt.total_repayable) > 0
+    ? Number(debt.total_repayable)
+    : Number(debt.principal);
+  const isClosed = newTotalPaid >= repayableTarget;
 
   const { data, error } = await supabase
     .from("debts")
@@ -205,4 +244,41 @@ export async function makePayment(id: string, amount: number) {
   });
 
   return data;
+}
+
+export async function getDebtPaymentTrend() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const [{ data: logs }, { data: debts }] = await Promise.all([
+    supabase
+      .from("activity_logs")
+      .select("metadata")
+      .eq("user_id", user.id)
+      .eq("action_type", "debt_payment_made")
+      .gte("created_at", thirtyDaysAgo.toISOString()),
+    supabase
+      .from("debts")
+      .select("principal, total_paid, total_repayable, is_closed, type")
+      .eq("user_id", user.id)
+      .eq("is_closed", false)
+      .neq("type", "lent"),
+  ]);
+
+  const paid30d = (logs || []).reduce((sum, log) => {
+    return sum + (Number((log.metadata as any)?.amount) || 0);
+  }, 0);
+
+  const totalOutstanding = (debts || []).reduce((sum, d) => {
+    const repayable = Number(d.total_repayable) > 0 ? Number(d.total_repayable) : Number(d.principal);
+    return sum + Math.max(0, repayable - Number(d.total_paid));
+  }, 0);
+
+  const trendPct = totalOutstanding > 0 ? (paid30d / totalOutstanding) * 100 : 0;
+
+  return { paid30d, trendPct, totalOutstanding };
 }

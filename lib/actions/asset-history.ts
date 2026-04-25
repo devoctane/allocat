@@ -19,7 +19,7 @@ export async function addAssetEntry(
   // Get current asset value and name
   const { data: asset, error: assetErr } = await supabase
     .from("assets")
-    .select("value, name")
+    .select("value, name, invested_amount")
     .eq("id", assetId)
     .eq("user_id", user.id)
     .single();
@@ -27,14 +27,18 @@ export async function addAssetEntry(
   if (assetErr || !asset) throw new Error("Asset not found");
 
   const currentValue = Number(asset.value);
+  const currentInvested = Number(asset.invested_amount ?? currentValue);
   let runningTotal: number;
+  let newInvestedAmount: number | undefined;
 
   switch (entryType) {
     case "add_funds":
       runningTotal = currentValue + amount;
+      newInvestedAmount = currentInvested + amount;
       break;
     case "withdraw":
       runningTotal = Math.max(0, currentValue - amount);
+      newInvestedAmount = Math.max(0, currentInvested - amount);
       break;
     case "update_value":
     case "initial":
@@ -62,10 +66,14 @@ export async function addAssetEntry(
 
   if (histErr) throw new Error(histErr.message);
 
-  // Keep assets.value in sync as denormalized cache
+  // Keep assets.value (and invested_amount) in sync as denormalized cache
   await supabase
     .from("assets")
-    .update({ value: runningTotal, updated_at: new Date().toISOString() })
+    .update({
+      value: runningTotal,
+      ...(newInvestedAmount !== undefined ? { invested_amount: newInvestedAmount } : {}),
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", assetId)
     .eq("user_id", user.id);
 
