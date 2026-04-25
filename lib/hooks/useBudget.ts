@@ -32,10 +32,6 @@ export async function getBudgetFromIDB(month: number, year: number) {
         .equals(cat.id)
         .toArray();
 
-      const allocated = items.reduce(
-        (s, i) => s + Number(i.planned_amount),
-        0
-      );
       const spent = items.reduce((s, i) => s + Number(i.actual_amount), 0);
 
       return {
@@ -43,7 +39,7 @@ export async function getBudgetFromIDB(month: number, year: number) {
         name: cat.name,
         icon: cat.icon,
         type: cat.type,
-        allocated,
+        allocated: Number(cat.allocated_amount),
         spent,
         subtitle: `${items.length} items`,
       };
@@ -254,6 +250,7 @@ export function useAddBudgetItem() {
         planned_amount: planned ?? 0,
         actual_amount: 0,
         is_completed: false,
+        notes: null,
         created_at: now,
         updated_at: now,
       });
@@ -289,6 +286,7 @@ export function useUpdateBudgetItem() {
         planned_amount?: number;
         actual_amount?: number;
         is_completed?: boolean;
+        notes?: string | null;
       };
       month: number;
       year: number;

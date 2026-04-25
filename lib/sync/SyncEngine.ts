@@ -19,6 +19,12 @@ import {
 } from "@/lib/actions/goals";
 import { addAsset, updateAsset, deleteAsset } from "@/lib/actions/net-worth";
 import {
+  addAssetCategory,
+  updateAssetCategory,
+  deleteAssetCategory,
+} from "@/lib/actions/asset-categories";
+import { addAssetEntry } from "@/lib/actions/asset-history";
+import {
   addDebt,
   updateDebt,
   deleteDebt,
@@ -69,7 +75,8 @@ export class SyncEngine {
         addBudgetCategory(
           p.budgetId as string,
           p.name as string,
-          p.type as "needs" | "wants" | "investments" | "misc"
+          (p.type as "needs" | "wants" | "investments" | "misc") ?? "misc",
+          (p.allocated_amount as number) ?? 0
         ),
       UPDATE: (p) => {
         const u = p.updates as Record<string, unknown>;
@@ -116,13 +123,35 @@ export class SyncEngine {
     },
     assets: {
       INSERT: (p) =>
-        addAsset(p.name as string, p.category as string, p.value as number),
+        addAsset(
+          p.name as string,
+          (p.categoryId as string | null) ?? null,
+          p.value as number,
+          (p.icon as string | null) ?? null
+        ),
       UPDATE: (p) =>
         updateAsset(
           p.id as string,
           p.updates as Parameters<typeof updateAsset>[1]
         ),
       DELETE: (p) => deleteAsset(p.id as string),
+    },
+    asset_categories: {
+      INSERT: (p) =>
+        addAssetCategory(p.name as string, p.icon as string),
+      UPDATE: (p) =>
+        updateAssetCategory(p.id as string, p.updates as { name?: string; icon?: string }),
+      DELETE: (p) => deleteAssetCategory(p.id as string),
+    },
+    asset_value_history: {
+      INSERT: (p) =>
+        addAssetEntry(
+          p.assetId as string,
+          p.entryType as "initial" | "add_funds" | "withdraw" | "update_value",
+          p.amount as number,
+          (p.note as string | null) ?? null,
+          (p.entryDate as string | undefined)
+        ),
     },
     debts: {
       INSERT: (p) =>

@@ -8,10 +8,13 @@ export type CategoryRow = Database["public"]["Tables"]["categories"]["Row"];
 export type BudgetItemRow = Database["public"]["Tables"]["budget_items"]["Row"];
 export type GoalRow = Database["public"]["Tables"]["goals"]["Row"];
 export type AssetRow = Database["public"]["Tables"]["assets"]["Row"];
+export type AssetCategoryRow = Database["public"]["Tables"]["asset_categories"]["Row"];
+export type AssetValueHistoryRow = Database["public"]["Tables"]["asset_value_history"]["Row"];
 export type DebtRow = Database["public"]["Tables"]["debts"]["Row"];
 export type ReportRow = Database["public"]["Tables"]["reports"]["Row"];
 export type SnapshotRow =
   Database["public"]["Tables"]["net_worth_snapshots"]["Row"];
+export type ActivityLogRow = Database["public"]["Tables"]["activity_logs"]["Row"];
 
 // ─── Sync infrastructure types ────────────────────────────────────────────────
 export type SyncTable =
@@ -21,6 +24,8 @@ export type SyncTable =
   | "budget_items"
   | "goals"
   | "assets"
+  | "asset_categories"
+  | "asset_value_history"
   | "debts"
   | "reports"
   | "net_worth_snapshots";
@@ -66,9 +71,13 @@ export class AllocatDB extends Dexie {
   budget_items!: Table<BudgetItemRow, string>;
   goals!: Table<GoalRow, string>;
   assets!: Table<AssetRow, string>;
+  asset_categories!: Table<AssetCategoryRow, string>;
+  asset_value_history!: Table<AssetValueHistoryRow, string>;
   debts!: Table<DebtRow, string>;
   reports!: Table<ReportRow, string>;
   net_worth_snapshots!: Table<SnapshotRow, string>;
+
+  activity_logs!: Table<ActivityLogRow, string>;
 
   sync_queue!: Table<SyncQueueItem, number>;
   id_map!: Table<IdMapEntry, string>;
@@ -99,6 +108,15 @@ export class AllocatDB extends Dexie {
       goals: "id, user_id, created_at",
       assets: "id, user_id, created_at",
       debts: "id, user_id, type, is_closed, created_at",
+    });
+
+    this.version(3).stores({
+      asset_categories: "id, user_id, created_at",
+      asset_value_history: "id, asset_id, user_id, entry_date, created_at",
+    });
+
+    this.version(4).stores({
+      activity_logs: "id, user_id, created_at, category",
     });
   }
 }

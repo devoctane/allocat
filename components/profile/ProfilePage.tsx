@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { MaterialSymbol } from "@/components/ui/MaterialSymbol";
 import ThemeSelector from "@/components/profile/ThemeSelector";
 import { signOut } from "@/lib/actions/auth";
@@ -11,14 +12,11 @@ export default function ProfilePage() {
   return (
     <div className="pt-12 px-6 max-w-2xl mx-auto space-y-12 pb-32">
       {/* Header Section */}
-      <header className="space-y-2 py-8">
-        <div className="w-12 h-1 bg-foreground mb-6"></div>
-        <h1 className="text-[3.5rem] font-black tracking-tighter leading-none uppercase text-foreground">
-          Profile
-        </h1>
-        <p className="text-muted-foreground font-medium tracking-tight">
-          The architecture of your financial identity.
-        </p>
+      <header className="py-8 border-b border-border">
+        <div className="font-display text-[32px] leading-none tracking-[-0.02em] text-foreground">Profile</div>
+        <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground mt-2">
+          Financial Identity
+        </div>
       </header>
 
       {/* User Profile Section */}
@@ -58,6 +56,20 @@ export default function ProfilePage() {
         </div>
 
         <div className="space-y-1">
+          <Link
+            href="/activity"
+            className="w-full flex justify-between items-center p-5 bg-card/50 border border-border hover:bg-muted transition-colors group"
+          >
+            <div className="flex items-center gap-4">
+              <MaterialSymbol icon="history" className="text-muted-foreground" />
+              <span className="font-bold tracking-tight text-foreground">See Activity</span>
+            </div>
+            <MaterialSymbol
+              icon="chevron_right"
+              className="text-muted-foreground group-hover:translate-x-1 transition-transform"
+            />
+          </Link>
+
           <button className="w-full flex justify-between items-center p-5 bg-card/50 border border-border hover:bg-muted transition-colors group">
             <div className="flex items-center gap-4">
               <MaterialSymbol icon="person_edit" className="text-muted-foreground" />

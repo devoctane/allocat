@@ -11,21 +11,36 @@ export const NET_WORTH_KEY = ["net-worth"] as const;
 export async function getNetWorthFromIDB() {
   const db = getDB();
   const assets = await db.assets.orderBy("created_at").toArray();
-  // Return null if no data to force server fallback on first load
   if (assets.length === 0) {
     const debtCount = await db.debts.count();
     if (debtCount === 0) return null;
   }
 
+  const categories = await db.asset_categories.toArray();
+  const catMap = new Map(categories.map((c) => [c.id, c]));
+
+  const normalizedAssets = assets.map((a) => {
+    const cat = a.category_id ? catMap.get(a.category_id) : null;
+    return {
+      id: a.id,
+      user_id: a.user_id,
+      name: a.name,
+      icon: a.icon,
+      category_id: a.category_id ?? null,
+      category_name: cat?.name ?? a.category ?? "Other",
+      category_icon: cat?.icon ?? "📦",
+      value: Number(a.value),
+      created_at: a.created_at,
+      updated_at: a.updated_at,
+    };
+  });
+
   const debts = await db.debts.toArray();
   const totalLiabilities = debts
     .filter((d) => !d.is_closed && d.type !== "lent")
-    .reduce(
-      (sum, d) => sum + (Number(d.principal) - Number(d.total_paid)),
-      0
-    );
+    .reduce((sum, d) => sum + (Number(d.principal) - Number(d.total_paid)), 0);
 
-  return { assets, totalLiabilities };
+  return { assets: normalizedAssets, totalLiabilities };
 }
 
 // ─── Query ────────────────────────────────────────────────────────────────────
@@ -50,30 +65,43 @@ export function useAddAsset() {
   return useMutation({
     mutationFn: async ({
       name,
-      category,
+      categoryId,
       value,
+      icon,
     }: {
       name: string;
-      category: string;
+      categoryId: string | null;
       value: number;
+      icon?: string | null;
     }) => {
       const db = getDB();
       const tempId = `temp_${crypto.randomUUID()}`;
       const now = new Date().toISOString();
+      const today = now.split("T")[0];
 
       await db.assets.add({
         id: tempId,
         user_id: "__pending__",
         name,
-        icon: null,
-        category: category as
-          | "liquid_cash"
-          | "investments"
-          | "real_estate"
-          | "other",
+        icon: icon ?? null,
+        category: null,
+        category_id: categoryId,
         value,
         created_at: now,
         updated_at: now,
+      });
+
+      // Record initial history entry locally
+      await db.asset_value_history.add({
+        id: `temp_hist_${crypto.randomUUID()}`,
+        asset_id: tempId,
+        user_id: "__pending__",
+        entry_type: "initial",
+        amount: value,
+        running_total: value,
+        note: null,
+        entry_date: today,
+        created_at: now,
       });
 
       await enqueue({
@@ -81,7 +109,7 @@ export function useAddAsset() {
         operation: "INSERT",
         recordId: tempId,
         tempId,
-        payload: { name, category, value },
+        payload: { name, categoryId, value, icon: icon ?? null },
       });
 
       return { id: tempId };
@@ -103,7 +131,7 @@ export function useUpdateAsset() {
       updates,
     }: {
       id: string;
-      updates: { name?: string; value?: number; icon?: string };
+      updates: { name?: string; icon?: string; category_id?: string | null };
     }) => {
       const db = getDB();
       await db.assets.update(id, {
@@ -119,7 +147,6 @@ export function useUpdateAsset() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: NET_WORTH_KEY });
-      qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
     },
   });
 }

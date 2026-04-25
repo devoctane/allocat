@@ -10,67 +10,38 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-dimmer: var(--dimmer);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
 }
 
 @layer base {
   :root, .light {
-    --background: #ffffff;
-    --foreground: #09090b;
-    --card: #ffffff;
-    --card-foreground: #09090b;
-    --border: rgba(0, 0, 0, 0.05);
-    --muted: #f4f4f5;
-    --muted-foreground: #71717a;
-    --primary: #18181b;
-    --primary-foreground: #fafafa;
+    --background: #f5f3ed;
+    --foreground: #0a0a0a;
+    --card: #eeece6;
+    --card-foreground: #0a0a0a;
+    --border: rgba(10, 10, 10, 0.1);
+    --muted: rgba(10, 10, 10, 0.05);
+    --muted-foreground: rgba(10, 10, 10, 0.5);
+    --primary: #0a0a0a;
+    --primary-foreground: #f5f3ed;
+    --dimmer: rgba(10, 10, 10, 0.28);
+    --progress-empty: rgba(10, 10, 10, 0.15);
   }
-  
+
   .dark {
-    --background: #000000;
-    --foreground: #fafafa;
-    --card: #18181b;
-    --card-foreground: #fafafa;
-    --border: rgba(255, 255, 255, 0.05);
-    --muted: #27272a;
-    --muted-foreground: #a1a1aa;
-    --primary: #fafafa;
-    --primary-foreground: #18181b;
-  }
-
-  .theme-blue {
-    --primary: #2563eb;
-    --primary-foreground: #ffffff;
-  }
-  .dark.theme-blue, .theme-blue.dark, .dark .theme-blue {
-    --primary: #3b82f6;
-    --primary-foreground: #ffffff;
-  }
-
-  .theme-green {
-    --primary: #16a34a;
-    --primary-foreground: #ffffff;
-  }
-  .dark.theme-green, .theme-green.dark, .dark .theme-green {
-    --primary: #22c55e;
-    --primary-foreground: #ffffff;
-  }
-
-  .theme-violet {
-    --primary: #7c3aed;
-    --primary-foreground: #ffffff;
-  }
-  .dark.theme-violet, .theme-violet.dark, .dark .theme-violet {
-    --primary: #8b5cf6;
-    --primary-foreground: #ffffff;
-  }
-
-  .theme-orange {
-    --primary: #ea580c;
-    --primary-foreground: #ffffff;
-  }
-  .dark.theme-orange, .theme-orange.dark, .dark .theme-orange {
-    --primary: #f97316;
-    --primary-foreground: #ffffff;
+    --background: #0a0a0a;
+    --foreground: #f2f0ea;
+    --card: #111111;
+    --card-foreground: #f2f0ea;
+    --border: rgba(242, 240, 234, 0.12);
+    --muted: rgba(242, 240, 234, 0.06);
+    --muted-foreground: rgba(242, 240, 234, 0.5);
+    --primary: #f2f0ea;
+    --primary-foreground: #0a0a0a;
+    --dimmer: rgba(242, 240, 234, 0.28);
+    --progress-empty: rgba(242, 240, 234, 0.28);
   }
 }
 
@@ -79,7 +50,7 @@ html {
 }
 
 body {
-  font-family: var(--font-sans), sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
   background: var(--background);
   color: var(--foreground);
   -webkit-font-smoothing: antialiased;
@@ -115,5 +86,3 @@ body {
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-

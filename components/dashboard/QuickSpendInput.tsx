@@ -22,7 +22,7 @@ interface SpendResult {
   actual: number;
 }
 
-function formatCurrency(value: number) {
+function fmt(value: number) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
@@ -38,43 +38,42 @@ function AllocationStatus({ result }: { result: SpendResult }) {
   const isCritical = !isOver && pct <= 10;
   const isWarning = !isOver && pct > 10 && pct <= 30;
 
-  const statusColor = isOver || isCritical
-    ? "text-red-400"
-    : isWarning
-    ? "text-amber-400"
-    : "text-foreground";
-
-  const barColor = isOver || isCritical
-    ? "bg-red-500"
-    : isWarning
-    ? "bg-amber-400"
-    : "bg-primary";
-
   const barPct = planned > 0 ? Math.min(100, Math.max(0, (remaining / planned) * 100)) : 0;
+  const statusLabel = isOver ? "Over Budget" : isCritical ? "Almost Empty" : isWarning ? "Running Low" : "Logged";
 
   return (
-    <div className="mt-3 p-3 bg-background border border-border rounded-lg space-y-2">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-          {isOver ? "⚠ Over Budget" : isCritical ? "⚠ Almost Empty" : isWarning ? "⚠ Running Low" : "✓ Logged"}
+    <div className="border-t border-border pt-4 space-y-2">
+      <div className="flex items-baseline justify-between">
+        <span className="font-mono text-[9px] tracking-[0.14em] uppercase text-muted-foreground">
+          {statusLabel}
         </span>
-        <span className={`text-xs font-bold tabular-nums ${statusColor}`}>
-          {isOver
-            ? `Over by ${formatCurrency(Math.abs(remaining))}`
-            : `${formatCurrency(remaining)} left`}
+        <span
+          className="font-mono text-[11px] tabular-nums"
+          style={{ color: isOver || isCritical ? "#ef4444" : isWarning ? "#f59e0b" : "var(--foreground)" }}
+        >
+          {isOver ? `Over by ${fmt(Math.abs(remaining))}` : `${fmt(remaining)} left`}
         </span>
       </div>
-
-      <p className="text-xs text-muted-foreground truncate">
-        <span className="text-foreground font-semibold">{itemName}</span>
-        {" "}— {formatCurrency(result.actual)} of {formatCurrency(planned)} used
+      <p className="font-mono text-[10px] text-muted-foreground truncate">
+        <span className="text-foreground">{itemName}</span>
+        {" "}— {fmt(result.actual)} of {fmt(planned)}
       </p>
-
-      <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
-          style={{ width: `${isOver ? 100 : barPct}%` }}
-        />
+      <div className="flex gap-[2px]">
+        {Array.from({ length: 20 }).map((_, j) => (
+          <div
+            key={j}
+            className="flex-1"
+            style={{
+              height: 2,
+              background:
+                isOver
+                  ? j < 20 ? "#ef4444" : "var(--progress-empty)"
+                  : j / 20 < barPct / 100
+                  ? "var(--foreground)"
+                  : "var(--progress-empty)",
+            }}
+          />
+        ))}
       </div>
     </div>
   );
@@ -88,9 +87,7 @@ export default function QuickSpendInput({ categories }: QuickSpendInputProps) {
   const [lastResult, setLastResult] = useState<SpendResult | null>(null);
 
   const haptic = useHaptic();
-  const { data: items = [], isFetching: itemsLoading } = useCategoryItems(
-    selectedCategoryId || null
-  );
+  const { data: items = [], isFetching: itemsLoading } = useCategoryItems(selectedCategoryId || null);
   const spendMutation = useQuickLogSpend();
 
   function handleCategoryChange(catId: string) {
@@ -101,14 +98,8 @@ export default function QuickSpendInput({ categories }: QuickSpendInputProps) {
   }
 
   function validate(): boolean {
-    if (!selectedCategoryId) {
-      setValidationError("Please select a category.");
-      return false;
-    }
-    if (!selectedItemId) {
-      setValidationError("Please select an item.");
-      return false;
-    }
+    if (!selectedCategoryId) { setValidationError("Select a category."); return false; }
+    if (!selectedItemId) { setValidationError("Select an item."); return false; }
     const parsed = parseFloat(amount);
     if (!amount || isNaN(parsed) || parsed <= 0) {
       setValidationError("Enter a valid amount greater than 0.");
@@ -119,11 +110,7 @@ export default function QuickSpendInput({ categories }: QuickSpendInputProps) {
   }
 
   async function handleSubmit() {
-    if (!validate()) {
-      haptic.light();
-      return;
-    }
-
+    if (!validate()) { haptic.light(); return; }
     spendMutation.mutate(
       { itemId: selectedItemId, amount: parseFloat(amount) },
       {
@@ -140,7 +127,7 @@ export default function QuickSpendInput({ categories }: QuickSpendInputProps) {
         },
         onError: () => {
           haptic.heavy();
-          setValidationError("Failed to log spend. Please try again.");
+          setValidationError("Failed to log spend. Try again.");
         },
       }
     );
@@ -152,28 +139,35 @@ export default function QuickSpendInput({ categories }: QuickSpendInputProps) {
     icon: cat.icon ?? undefined,
   }));
 
-  const itemOptions = items.map((item) => ({
+  const mappedItems = items.map((item) => {
+    const planned = Number(item.planned_amount ?? (item as unknown as { planned?: number }).planned ?? 0);
+    const actual = Number(item.actual_amount ?? (item as unknown as { actual?: number }).actual ?? 0);
+    return { ...item, planned, actual, remaining: planned - actual };
+  });
+
+  const itemOptions = mappedItems.map((item) => ({
     value: item.id,
     label: item.name,
-    description: item.planned > 0
-      ? `${formatCurrency(item.remaining)} of ${formatCurrency(item.planned)} remaining`
-      : "No allocation set",
+    description:
+      item.planned > 0
+        ? `${fmt(item.remaining)} of ${fmt(item.planned)} remaining`
+        : "No allocation set",
   }));
 
-  const selectedItem = items.find((i) => i.id === selectedItemId);
+  const selectedItem = mappedItems.find((i) => i.id === selectedItemId);
 
   return (
     <section>
-      <div className="bg-card rounded-xl border border-border p-5">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">
+      <div className="border border-border bg-card p-6">
+        <p className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground mb-5">
           Quick Log Spend
         </p>
 
-        <div className="space-y-3">
-          {/* Row 1: Category + Item */}
-          <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-4">
+          {/* Category + Item row */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground mb-1.5 block">
+              <label className="font-mono text-[9px] tracking-[0.14em] uppercase text-muted-foreground mb-1.5 block">
                 Category
               </label>
               <BottomSheetSelect
@@ -184,25 +178,20 @@ export default function QuickSpendInput({ categories }: QuickSpendInputProps) {
                 onChange={handleCategoryChange}
               />
             </div>
-
             <div>
-              <label className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground mb-1.5 block">
+              <label className="font-mono text-[9px] tracking-[0.14em] uppercase text-muted-foreground mb-1.5 block">
                 Item
               </label>
               <BottomSheetSelect
                 title="Select Item"
                 placeholder={
                   itemsLoading ? "Loading…" :
-                  !selectedCategoryId ? "Pick category first" :
+                  !selectedCategoryId ? "Pick category" :
                   items.length === 0 ? "No items" : "Item…"
                 }
                 options={itemOptions}
                 value={selectedItemId}
-                onChange={(val) => {
-                  setSelectedItemId(val);
-                  setLastResult(null);
-                  setValidationError("");
-                }}
+                onChange={(val) => { setSelectedItemId(val); setLastResult(null); setValidationError(""); }}
                 disabled={!selectedCategoryId || itemsLoading || items.length === 0}
               />
             </div>
@@ -210,18 +199,18 @@ export default function QuickSpendInput({ categories }: QuickSpendInputProps) {
 
           {/* Remaining hint */}
           {selectedItem && !lastResult && (
-            <p className="text-[11px] tabular-nums text-muted-foreground -mt-1">
+            <p className="font-mono text-[10px] tabular-nums text-muted-foreground">
               {selectedItem.remaining > 0
-                ? `${formatCurrency(selectedItem.remaining)} remaining of ${formatCurrency(selectedItem.planned)}`
+                ? `${fmt(selectedItem.remaining)} remaining of ${fmt(selectedItem.planned)}`
                 : selectedItem.planned === 0
-                ? "No allocation set for this item"
-                : `Over budget by ${formatCurrency(Math.abs(selectedItem.remaining))}`}
+                ? "No allocation set"
+                : `Over budget by ${fmt(Math.abs(selectedItem.remaining))}`}
             </p>
           )}
 
-          {/* Amount input */}
+          {/* Amount */}
           <div>
-            <label className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground mb-1.5 block">
+            <label className="font-mono text-[9px] tracking-[0.14em] uppercase text-muted-foreground mb-1.5 block">
               Amount (₹)
             </label>
             <input
@@ -230,31 +219,24 @@ export default function QuickSpendInput({ categories }: QuickSpendInputProps) {
               min="0"
               placeholder="0"
               value={amount}
-              onChange={(e) => {
-                setAmount(e.target.value);
-                setValidationError("");
-                setLastResult(null);
-              }}
+              onChange={(e) => { setAmount(e.target.value); setValidationError(""); setLastResult(null); }}
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-              className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground tabular-nums focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full bg-background border border-border px-3 py-2.5 font-mono text-sm text-foreground tabular-nums focus:outline-none focus:border-foreground transition-colors"
             />
           </div>
 
-          {/* Validation error */}
           {validationError && (
-            <p className="text-xs text-red-400">{validationError}</p>
+            <p className="font-mono text-[10px] text-red-400">{validationError}</p>
           )}
 
-          {/* Submit */}
           <button
             onClick={handleSubmit}
             disabled={spendMutation.isPending}
-            className="w-full py-2.5 bg-primary text-primary-foreground text-xs font-bold uppercase tracking-widest rounded-lg active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3 border border-foreground font-mono text-[10px] tracking-[0.14em] uppercase text-foreground hover:bg-foreground hover:text-background active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {spendMutation.isPending ? "Logging…" : "Log Spend →"}
           </button>
 
-          {/* Post-save allocation status */}
           {lastResult && <AllocationStatus result={lastResult} />}
         </div>
       </div>

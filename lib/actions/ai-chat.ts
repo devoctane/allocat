@@ -110,7 +110,7 @@ export async function getNetWorthContext(): Promise<string> {
   if (!user) throw new Error("Unauthorized");
 
   const [{ data: assets }, { data: debts }, { data: snapshots }] = await Promise.all([
-    supabase.from("assets").select("*").eq("user_id", user.id).order("category"),
+    supabase.from("assets").select("*, asset_categories(name)").eq("user_id", user.id).order("created_at"),
     supabase.from("debts").select("*").eq("user_id", user.id).eq("is_closed", false),
     supabase
       .from("net_worth_snapshots")
@@ -137,7 +137,10 @@ export async function getNetWorthContext(): Promise<string> {
 
   const assetLines = (assets ?? []).length === 0
     ? ["  (no assets recorded)"]
-    : (assets ?? []).map((a) => `  - ${a.name} [${a.category}]: ${fmt(Number(a.value))}`);
+    : (assets ?? []).map((a) => {
+        const catName = (a as any).asset_categories?.name ?? a.category ?? "Other";
+        return `  - ${a.name} [${catName}]: ${fmt(Number(a.value))}`;
+      });
 
   const receivableLines = (debts ?? []).filter(d => d.type === "lent").map(d => {
     const remaining = Number(d.principal) - Number(d.total_paid);

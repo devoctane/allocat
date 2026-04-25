@@ -25,22 +25,17 @@ async function getCategoryFromIDB(categoryId: string) {
     .equals(categoryId)
     .toArray();
 
-  // Compute otherAllocated: sum of planned_amount from all OTHER categories
-  let otherAllocated = 0;
-  for (const cat of allCategories) {
-    if (cat.id === categoryId) continue;
-    const catItems = await db.budget_items
-      .where("category_id")
-      .equals(cat.id)
-      .toArray();
-    otherAllocated += catItems.reduce((s, i) => s + Number(i.planned_amount), 0);
-  }
+  // Use category.allocated_amount directly — no need to sum other categories' items
+  const otherAllocated = allCategories.reduce((s, cat) => {
+    if (cat.id === categoryId) return s;
+    return s + Number(cat.allocated_amount);
+  }, 0);
 
   return {
     id: category.id,
     name: category.name,
     icon: category.icon,
-    allocated: items.reduce((s, i) => s + Number(i.planned_amount), 0),
+    categoryAllocation: Number(category.allocated_amount),
     totalBudget: Number(budget.total_budget),
     otherAllocated,
     items: items.map((item) => ({
@@ -48,6 +43,8 @@ async function getCategoryFromIDB(categoryId: string) {
       name: item.name,
       planned: Number(item.planned_amount),
       actual: Number(item.actual_amount),
+      is_completed: item.is_completed,
+      notes: item.notes ?? null,
     })),
   };
 }

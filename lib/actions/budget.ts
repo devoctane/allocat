@@ -2,23 +2,13 @@
 
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/types/database";
+import { logActivity, fmt } from "@/lib/server/activity-logger";
 
 type BudgetItemRow = Database["public"]["Tables"]["budget_items"]["Row"];
 type CategoryRow = Database["public"]["Tables"]["categories"]["Row"];
 type CategoryWithItems = CategoryRow & {
   budget_items: BudgetItemRow[] | null;
 };
-type PlannedBudgetItem = Pick<BudgetItemRow, "planned_amount">;
-type CategoryItemsSnapshot = {
-  budget_items: PlannedBudgetItem[] | null;
-};
-type CategoryAllocationSnapshot = Pick<CategoryRow, "id" | "budget_id"> & {
-  budget_items: PlannedBudgetItem[] | null;
-};
-
-function getPlannedAllocation(items: PlannedBudgetItem[] | null | undefined) {
-  return (items || []).reduce((sum, item) => sum + Number(item.planned_amount || 0), 0);
-}
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -29,6 +19,8 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
+// ─── Category-level allocation context (for setting category.allocated_amount) ──
+
 async function getBudgetAllocationContext(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
@@ -36,19 +28,17 @@ async function getBudgetAllocationContext(
 ) {
   const { data: category, error: categoryError } = await supabase
     .from("categories")
-    .select("id, budget_id, budget_items(planned_amount)")
+    .select("id, budget_id, allocated_amount")
     .eq("id", categoryId)
     .eq("user_id", userId)
     .single();
 
   if (categoryError) throw new Error(categoryError.message);
 
-  const categorySnapshot = category as CategoryAllocationSnapshot;
-
   const { data: budget, error: budgetError } = await supabase
     .from("budgets")
     .select("total_budget")
-    .eq("id", categorySnapshot.budget_id)
+    .eq("id", category.budget_id)
     .eq("user_id", userId)
     .single();
 
@@ -56,20 +46,21 @@ async function getBudgetAllocationContext(
 
   const { data: categories, error: categoriesError } = await supabase
     .from("categories")
-    .select("id, budget_items(planned_amount)")
-    .eq("budget_id", categorySnapshot.budget_id)
+    .select("id, allocated_amount")
+    .eq("budget_id", category.budget_id)
     .eq("user_id", userId);
 
   if (categoriesError) throw new Error(categoriesError.message);
 
-  const currentCategoryAllocated = getPlannedAllocation(categorySnapshot.budget_items);
-  const otherAllocated = ((categories || []) as CategoryAllocationSnapshot[]).reduce((sum, currentCategory) => {
-    if (currentCategory.id === categoryId) return sum;
-    return sum + getPlannedAllocation(currentCategory.budget_items);
+  const otherAllocated = (categories || []).reduce((sum, cat) => {
+    if (cat.id === categoryId) return sum;
+    return sum + Number(cat.allocated_amount || 0);
   }, 0);
 
+  const currentCategoryAllocated = Number(category.allocated_amount || 0);
+
   return {
-    budgetId: categorySnapshot.budget_id,
+    budgetId: category.budget_id,
     totalBudget: Number(budget.total_budget || 0),
     currentCategoryAllocated,
     otherAllocated,
@@ -89,45 +80,71 @@ function validateBudgetAllocationChange(
   if (!isIncreasingPastBudget) return;
 
   if (context.totalBudget <= 0) {
-    throw new Error("Set the Total Budget before allocating more items.");
+    throw new Error("Set the Total Budget before allocating more to categories.");
   }
 
   const overBy = nextTotalAllocated - context.totalBudget;
   throw new Error(
-    `This change exceeds the total budget by ${formatCurrency(overBy)}. Reduce another category or increase the total budget first.`
+    `This exceeds the total budget by ${formatCurrency(overBy)}. Reduce another category or increase the total budget first.`
   );
 }
 
-async function syncCategoryAllocation(
+// ─── Item-level allocation context (for setting item.planned_amount) ────────────
+
+async function getItemAllocationContext(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
-  categoryId: string
+  categoryId: string,
+  excludeItemId: string | null = null
 ) {
+  const { data: category, error: catError } = await supabase
+    .from("categories")
+    .select("allocated_amount")
+    .eq("id", categoryId)
+    .eq("user_id", userId)
+    .single();
+
+  if (catError) throw new Error(catError.message);
+
   const { data: items, error: itemsError } = await supabase
     .from("budget_items")
-    .select("planned_amount")
+    .select("id, planned_amount")
     .eq("category_id", categoryId)
     .eq("user_id", userId);
 
   if (itemsError) throw new Error(itemsError.message);
 
-  const allocatedAmount = getPlannedAllocation(items as PlannedBudgetItem[]);
+  const otherItemsPlanned = (items || [])
+    .filter((i) => i.id !== excludeItemId)
+    .reduce((s, i) => s + Number(i.planned_amount || 0), 0);
 
-  const { error: updateError } = await supabase
-    .from("categories")
-    .update({ allocated_amount: allocatedAmount })
-    .eq("id", categoryId)
-    .eq("user_id", userId);
-
-  if (updateError) throw new Error(updateError.message);
+  return {
+    categoryAllocation: Number(category?.allocated_amount || 0),
+    otherItemsPlanned,
+  };
 }
+
+function validateItemAllocationChange(
+  categoryAllocation: number,
+  otherItemsPlanned: number,
+  newPlanned: number
+) {
+  if (categoryAllocation <= 0) return; // No cap set — allow any amount
+  const nextTotal = otherItemsPlanned + newPlanned;
+  if (nextTotal > categoryAllocation) {
+    throw new Error(
+      `Items exceed the category budget of ${formatCurrency(categoryAllocation)} by ${formatCurrency(nextTotal - categoryAllocation)}. Increase the category budget first.`
+    );
+  }
+}
+
+// ─── Public actions ──────────────────────────────────────────────────────────
 
 export async function getBudgetForPeriod(month: number, year: number) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  // Get or create budget
   let { data: budget } = await supabase
     .from("budgets")
     .select("*")
@@ -145,7 +162,6 @@ export async function getBudgetForPeriod(month: number, year: number) {
     budget = newBudget;
   }
 
-  // Fetch categories and items
   const { data: categories } = await supabase
     .from("categories")
     .select("*, budget_items(*)")
@@ -153,17 +169,16 @@ export async function getBudgetForPeriod(month: number, year: number) {
     .order("created_at");
 
   const formattedCategories = ((categories || []) as CategoryWithItems[]).map((cat) => {
-    let spent = 0;
-    cat.budget_items?.forEach((item) => {
-      spent += Number(item.actual_amount || 0);
-    });
-
+    const spent = (cat.budget_items || []).reduce(
+      (s, item) => s + Number(item.actual_amount || 0),
+      0
+    );
     return {
       id: cat.id,
       name: cat.name,
       icon: cat.icon,
       type: cat.type,
-      allocated: getPlannedAllocation(cat.budget_items),
+      allocated: Number(cat.allocated_amount || 0),
       spent,
       subtitle: `${cat.budget_items?.length || 0} items`,
     };
@@ -181,7 +196,8 @@ export async function getBudgetForPeriod(month: number, year: number) {
 export async function addBudgetCategory(
   budgetId: string,
   name: string,
-  type: Database["public"]["Tables"]["categories"]["Insert"]["type"] = "misc"
+  type: Database["public"]["Tables"]["categories"]["Insert"]["type"] = "misc",
+  allocated_amount: number = 0
 ) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -197,13 +213,22 @@ export async function addBudgetCategory(
       user_id: user.id,
       name: trimmedName,
       type,
-      allocated_amount: 0,
+      allocated_amount,
       icon: null,
     })
     .select()
     .single();
 
   if (error) throw new Error(error.message);
+
+  await logActivity(supabase, user.id, {
+    action_type: "category_added",
+    category: "budget",
+    title: `Created category "${trimmedName}"`,
+    description: `New ${type} budget category "${trimmedName}" created`,
+    metadata: { categoryId: data.id, name: trimmedName, type, allocated_amount },
+  });
+
   return data;
 }
 
@@ -218,19 +243,20 @@ export async function updateBudgetTotal(budgetId: string, totalAmount: number) {
 
   const { data: categories, error: categoriesError } = await supabase
     .from("categories")
-    .select("budget_items(planned_amount)")
+    .select("allocated_amount")
     .eq("budget_id", budgetId)
     .eq("user_id", user.id);
 
   if (categoriesError) throw new Error(categoriesError.message);
 
-  const totalAllocated = ((categories || []) as CategoryItemsSnapshot[]).reduce((sum, category) => {
-    return sum + getPlannedAllocation(category.budget_items);
-  }, 0);
+  const totalAllocated = (categories || []).reduce(
+    (sum, cat) => sum + Number(cat.allocated_amount || 0),
+    0
+  );
 
   if (totalAmount < totalAllocated) {
     throw new Error(
-      `Total budget can't be lower than the allocated amount of ${formatCurrency(totalAllocated)}. Reduce item allocations first.`
+      `Total budget can't be lower than the allocated amount of ${formatCurrency(totalAllocated)}. Reduce category allocations first.`
     );
   }
 
@@ -243,6 +269,15 @@ export async function updateBudgetTotal(budgetId: string, totalAmount: number) {
     .single();
 
   if (error) throw new Error(error.message);
+
+  await logActivity(supabase, user.id, {
+    action_type: "budget_total_updated",
+    category: "budget",
+    title: `Set total budget to ${fmt(totalAmount)}`,
+    description: `Total budget updated to ${fmt(totalAmount)}`,
+    metadata: { budgetId, totalAmount },
+  });
+
   return data;
 }
 
@@ -250,6 +285,11 @@ export async function updateCategoryAllocation(categoryId: string, allocatedAmou
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
+
+  if (allocatedAmount < 0) throw new Error("Allocation must be 0 or more.");
+
+  const allocationContext = await getBudgetAllocationContext(supabase, user.id, categoryId);
+  validateBudgetAllocationChange(allocationContext, allocatedAmount);
 
   const { data, error } = await supabase
     .from("categories")
@@ -260,6 +300,15 @@ export async function updateCategoryAllocation(categoryId: string, allocatedAmou
     .single();
 
   if (error) throw new Error(error.message);
+
+  await logActivity(supabase, user.id, {
+    action_type: "category_allocation_updated",
+    category: "budget",
+    title: `Set "${data.name}" allocation to ${fmt(allocatedAmount)}`,
+    description: `Budget allocation for "${data.name}" updated to ${fmt(allocatedAmount)}`,
+    metadata: { categoryId, name: data.name, allocated_amount: allocatedAmount },
+  });
+
   return data;
 }
 
@@ -294,6 +343,15 @@ export async function updateCategoryName(categoryId: string, name: string) {
     .single();
 
   if (error) throw new Error(error.message);
+
+  await logActivity(supabase, user.id, {
+    action_type: "category_renamed",
+    category: "budget",
+    title: `Renamed category to "${name}"`,
+    description: `Budget category renamed to "${name}"`,
+    metadata: { categoryId, name },
+  });
+
   return data;
 }
 
@@ -302,6 +360,13 @@ export async function deleteCategory(categoryId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
+  const { data: cat } = await supabase
+    .from("categories")
+    .select("name")
+    .eq("id", categoryId)
+    .eq("user_id", user.id)
+    .single();
+
   const { error } = await supabase
     .from("categories")
     .delete()
@@ -309,6 +374,15 @@ export async function deleteCategory(categoryId: string) {
     .eq("user_id", user.id);
 
   if (error) throw new Error(error.message);
+
+  await logActivity(supabase, user.id, {
+    action_type: "category_deleted",
+    category: "budget",
+    title: `Deleted category "${cat?.name ?? categoryId}"`,
+    description: `Budget category "${cat?.name ?? categoryId}" was deleted`,
+    metadata: { categoryId, name: cat?.name ?? null },
+  });
+
   return true;
 }
 
@@ -321,11 +395,8 @@ export async function addBudgetItem(categoryId: string, name: string, planned: n
   if (!trimmedName) throw new Error("Item name is required");
   if (planned < 0) throw new Error("Allocation must be 0 or more.");
 
-  const allocationContext = await getBudgetAllocationContext(supabase, user.id, categoryId);
-  validateBudgetAllocationChange(
-    allocationContext,
-    allocationContext.currentCategoryAllocated + Number(planned || 0)
-  );
+  const itemContext = await getItemAllocationContext(supabase, user.id, categoryId, null);
+  validateItemAllocationChange(itemContext.categoryAllocation, itemContext.otherItemsPlanned, Number(planned || 0));
 
   const { data, error } = await supabase
     .from("budget_items")
@@ -335,17 +406,35 @@ export async function addBudgetItem(categoryId: string, name: string, planned: n
       name: trimmedName,
       planned_amount: planned,
       actual_amount: 0,
-      is_completed: false
+      is_completed: false,
+      notes: null,
     })
     .select()
     .single();
 
   if (error) throw new Error(error.message);
-  await syncCategoryAllocation(supabase, user.id, categoryId);
+
+  await logActivity(supabase, user.id, {
+    action_type: "budget_item_added",
+    category: "budget",
+    title: `Added "${trimmedName}" to budget`,
+    description: `New budget item "${trimmedName}" created with planned amount ${fmt(planned)}`,
+    metadata: { itemId: data.id, name: trimmedName, categoryId, planned_amount: planned },
+  });
+
   return data;
 }
 
-export async function updateBudgetItem(itemId: string, updates: { name?: string, planned_amount?: number, actual_amount?: number, is_completed?: boolean }) {
+export async function updateBudgetItem(
+  itemId: string,
+  updates: {
+    name?: string;
+    planned_amount?: number;
+    actual_amount?: number;
+    is_completed?: boolean;
+    notes?: string | null;
+  }
+) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
@@ -367,19 +456,17 @@ export async function updateBudgetItem(itemId: string, updates: { name?: string,
     if (updates.planned_amount < 0) {
       throw new Error("Allocation must be 0 or more.");
     }
-
-    const allocationContext = await getBudgetAllocationContext(
+    const itemContext = await getItemAllocationContext(
       supabase,
       user.id,
-      existingItem.category_id
+      existingItem.category_id,
+      itemId
     );
-
-    const nextCategoryAllocated =
-      allocationContext.currentCategoryAllocated -
-      Number(existingItem.planned_amount || 0) +
-      Number(updates.planned_amount || 0);
-
-    validateBudgetAllocationChange(allocationContext, nextCategoryAllocated);
+    validateItemAllocationChange(
+      itemContext.categoryAllocation,
+      itemContext.otherItemsPlanned,
+      Number(updates.planned_amount)
+    );
   }
 
   const { data, error } = await supabase
@@ -394,9 +481,44 @@ export async function updateBudgetItem(itemId: string, updates: { name?: string,
     .single();
 
   if (error) throw new Error(error.message);
-  if (updates.planned_amount !== undefined) {
-    await syncCategoryAllocation(supabase, user.id, existingItem.category_id);
+
+  const itemName = data.name;
+  let title: string;
+  let action_type: string;
+
+  if (updates.is_completed !== undefined) {
+    action_type = updates.is_completed ? "budget_item_completed" : "budget_item_uncompleted";
+    title = updates.is_completed
+      ? `Marked "${itemName}" as complete`
+      : `Marked "${itemName}" as incomplete`;
+  } else if (updates.actual_amount !== undefined) {
+    action_type = "budget_item_spend_updated";
+    title = `Updated spend for "${itemName}" to ${fmt(updates.actual_amount)}`;
+  } else if (updates.planned_amount !== undefined) {
+    action_type = "budget_item_allocation_updated";
+    title = `Set "${itemName}" planned amount to ${fmt(updates.planned_amount)}`;
+  } else if (updates.name !== undefined) {
+    action_type = "budget_item_renamed";
+    title = `Renamed item to "${updates.name.trim()}"`;
+  } else {
+    action_type = "budget_item_updated";
+    title = `Updated "${itemName}"`;
   }
+
+  await logActivity(supabase, user.id, {
+    action_type,
+    category: "budget",
+    title,
+    description: title,
+    metadata: {
+      itemId,
+      name: itemName,
+      ...(updates.actual_amount !== undefined ? { actual_amount: updates.actual_amount } : {}),
+      ...(updates.planned_amount !== undefined ? { planned_amount: updates.planned_amount } : {}),
+      ...(updates.notes !== undefined && updates.notes !== null ? { note: updates.notes } : {}),
+    },
+  });
+
   return data;
 }
 
@@ -405,14 +527,12 @@ export async function deleteBudgetItem(itemId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  const { data: existingItem, error: existingItemError } = await supabase
+  const { data: item } = await supabase
     .from("budget_items")
-    .select("category_id")
+    .select("name, category_id")
     .eq("id", itemId)
     .eq("user_id", user.id)
     .single();
-
-  if (existingItemError) throw new Error(existingItemError.message);
 
   const { error } = await supabase
     .from("budget_items")
@@ -421,7 +541,15 @@ export async function deleteBudgetItem(itemId: string) {
     .eq("user_id", user.id);
 
   if (error) throw new Error(error.message);
-  await syncCategoryAllocation(supabase, user.id, existingItem.category_id);
+
+  await logActivity(supabase, user.id, {
+    action_type: "budget_item_deleted",
+    category: "budget",
+    title: `Deleted "${item?.name ?? itemId}"`,
+    description: `Budget item "${item?.name ?? itemId}" was deleted`,
+    metadata: { itemId, name: item?.name ?? null, categoryId: item?.category_id ?? null },
+  });
+
   return true;
 }
 
@@ -439,7 +567,7 @@ export async function getCategoryItems(categoryId: string) {
 
   if (error) throw new Error(error.message);
 
-  return data.map(item => ({
+  return data.map((item) => ({
     ...item,
     planned: item.planned_amount,
     remaining: item.planned_amount - item.actual_amount,
@@ -472,6 +600,19 @@ export async function quickLogSpend(itemId: string, amount: number) {
 
   if (error) throw new Error(error.message);
 
+  await logActivity(supabase, user.id, {
+    action_type: "spend_logged",
+    category: "budget",
+    title: `Logged ${fmt(amount)} spend on "${updatedItem.name}"`,
+    description: `${fmt(amount)} spent on "${updatedItem.name}"`,
+    metadata: {
+      itemId,
+      itemName: updatedItem.name,
+      amount,
+      newTotal: updatedItem.actual_amount,
+    },
+  });
+
   return {
     itemName: updatedItem.name,
     remaining: updatedItem.planned_amount - updatedItem.actual_amount,
@@ -501,7 +642,7 @@ export async function getCategoryData(categoryId: string) {
     id: categoryWithItems.id,
     name: categoryWithItems.name,
     icon: categoryWithItems.icon,
-    allocated: getPlannedAllocation(categoryWithItems.budget_items),
+    categoryAllocation: Number(categoryWithItems.allocated_amount || 0),
     totalBudget: allocationContext.totalBudget,
     otherAllocated: allocationContext.otherAllocated,
     items: (categoryWithItems.budget_items || []).map((item) => ({
@@ -509,6 +650,8 @@ export async function getCategoryData(categoryId: string) {
       name: item.name,
       planned: Number(item.planned_amount || 0),
       actual: Number(item.actual_amount || 0),
+      is_completed: item.is_completed,
+      notes: item.notes ?? null,
     })),
   };
 }

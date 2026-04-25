@@ -7,6 +7,7 @@ import { InlineEditableText } from "@/components/ui/InlineEditableText";
 import { InlineEditableNumber } from "@/components/ui/InlineEditableNumber";
 import EmojiPickerModal from "@/components/ui/EmojiPickerModal";
 import { ConfirmDrawer } from "@/components/ui/ConfirmDrawer";
+import { ItemDetailSheet, NEW_ITEM_ID } from "@/components/budget/ItemDetailSheet";
 import { useHaptic } from "@/lib/hooks/useHaptic";
 import { useCategoryData, categoryDataKey } from "@/lib/hooks/useCategoryData";
 import { budgetKey } from "@/lib/hooks/useBudget";
@@ -19,56 +20,64 @@ interface BudgetItem {
   name: string;
   planned: number;
   actual: number;
+  is_completed: boolean;
+  notes: string | null;
 }
 
-function formatNum(value: number) {
-  return `₹${value.toFixed(2)}`;
+function fmt(value: number) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
-function getAllocatedAmount(items: BudgetItem[]) {
-  return items.reduce((sum, item) => sum + item.planned, 0);
+function SegBar({ pct, segments = 20 }: { pct: number; segments?: number }) {
+  return (
+    <div className="flex gap-[2px] mt-2">
+      {Array.from({ length: segments }).map((_, j) => (
+        <div
+          key={j}
+          className="flex-1"
+          style={{
+            height: 2,
+            background: j / segments < pct ? "var(--foreground)" : "var(--progress-empty)",
+          }}
+        />
+      ))}
+    </div>
+  );
 }
 
-// ─── Entry point — reads from IDB via hook ────────────────────────────────────
-
-export default function CategoryDetailPage({
-  categoryId,
-}: {
-  categoryId: string;
-}) {
+export default function CategoryDetailPage({ categoryId }: { categoryId: string }) {
   const { data, isLoading } = useCategoryData(categoryId);
 
   if (isLoading) {
     return (
-      <div className="flex flex-col min-h-full animate-pulse px-6 pt-10 gap-6">
+      <div className="flex flex-col min-h-full animate-pulse px-7 pt-14 gap-6">
         <div className="h-8 bg-muted rounded w-40" />
-        <div className="grid grid-cols-3 gap-3">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="h-20 bg-muted rounded-lg" />
-          ))}
+        <div className="h-px bg-border" />
+        <div className="grid grid-cols-3 gap-6">
+          {[0, 1, 2].map((i) => <div key={i} className="h-16 bg-muted rounded" />)}
         </div>
-        <div className="h-4 bg-muted rounded w-full" />
-        <div className="flex flex-col gap-4 mt-4">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="h-12 bg-muted rounded" />
-          ))}
+        <div className="h-px bg-border" />
+        <div className="flex flex-col gap-4">
+          {[0, 1, 2].map((i) => <div key={i} className="h-12 bg-muted rounded" />)}
         </div>
       </div>
     );
   }
 
   if (!data) return null;
-
   return <CategoryDetailContent categoryId={categoryId} data={data} />;
 }
-
-// ─── Content with full interaction logic ──────────────────────────────────────
 
 interface CategoryData {
   id: string;
   name: string;
   icon?: string | null;
-  allocated: number;
+  categoryAllocation: number;
   totalBudget: number;
   otherAllocated: number;
   items: BudgetItem[];
@@ -89,120 +98,137 @@ function CategoryDetailContent({
   const [items, setItems] = useState<BudgetItem[]>(data.items);
   const [icon, setIcon] = useState(data.icon || null);
   const [name, setName] = useState(data.name);
-  const [newItemName, setNewItemName] = useState("");
+  const [categoryAllocation, setCategoryAllocation] = useState(data.categoryAllocation);
+  const [selectedItem, setSelectedItem] = useState<BudgetItem | null>(null);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [validationError, setValidationError] = useState("");
 
-  const allocated = getAllocatedAmount(items);
-  const totalAllocated = data.otherAllocated + allocated;
-  const used = items.reduce((s, i) => s + i.actual, 0);
-  const left = allocated - used;
+  const totalPlanned = items.reduce((s, i) => s + i.planned, 0);
+  const totalActual = items.reduce((s, i) => s + i.actual, 0);
+  const left = categoryAllocation - totalActual;
   const pct =
-    allocated > 0 ? Math.min(100, Math.round((used / allocated) * 100)) : 0;
-  const categoryBudgetCap = Math.max(0, data.totalBudget - data.otherAllocated);
-  const remainingBudgetCapacity = data.totalBudget - totalAllocated;
+    categoryAllocation > 0
+      ? Math.min(1, totalActual / categoryAllocation)
+      : 0;
 
-  function getAllocationValidationMessage(nextAllocated: number) {
-    const nextTotalAllocated = data.otherAllocated + nextAllocated;
-    const currentTotalAllocated = data.otherAllocated + allocated;
+  const remainingBudgetCapacity = data.totalBudget - data.otherAllocated - categoryAllocation;
 
-    if (
-      nextTotalAllocated <= data.totalBudget ||
-      nextTotalAllocated <= currentTotalAllocated
-    ) {
-      return "";
+  function getCategoryAllocationError(nextAllocation: number) {
+    const nextTotal = data.otherAllocated + nextAllocation;
+    if (nextTotal <= data.totalBudget || nextTotal <= data.otherAllocated + categoryAllocation) return "";
+    if (data.totalBudget <= 0) return "Set the Total Budget on the budget page before allocating category budgets.";
+    return `Exceeds the total budget by ${fmt(nextTotal - data.totalBudget)}.`;
+  }
+
+  function getItemAllocationError(nextItemsTotal: number) {
+    if (categoryAllocation <= 0) return "";
+    if (nextItemsTotal > categoryAllocation) {
+      return `Items exceed category budget of ${fmt(categoryAllocation)} by ${fmt(nextItemsTotal - categoryAllocation)}.`;
     }
-
-    if (data.totalBudget <= 0) {
-      return "Set the Total Budget before allocating more items.";
-    }
-
-    return `This change exceeds the total budget by ${formatNum(
-      nextTotalAllocated - data.totalBudget
-    )}. Reduce another category or increase the total budget first.`;
+    return "";
   }
 
   function invalidateBudgetCaches() {
-    // Best-effort: find the parent budget's month/year from IDB and invalidate
-    // We don't wait for this — it's a background cache refresh
-    getDB()
-      .categories.get(categoryId)
-      .then((cat) => {
-        if (!cat) return;
-        return getDB()
-          .budgets.get(cat.budget_id)
-          .then((budget) => {
-            if (!budget) return;
-            qc.invalidateQueries({
-              queryKey: budgetKey(budget.month, budget.year),
-            });
-          });
-      })
-      .catch(() => {});
+    getDB().categories.get(categoryId).then((cat) => {
+      if (!cat) return;
+      return getDB().budgets.get(cat.budget_id).then((budget) => {
+        if (!budget) return;
+        qc.invalidateQueries({ queryKey: budgetKey(budget.month, budget.year) });
+      });
+    }).catch(() => {});
     qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
     qc.invalidateQueries({ queryKey: categoryDataKey(categoryId) });
   }
 
-  async function handleAddItem() {
-    if (!newItemName.trim()) return;
-    const trimmedName = newItemName.trim();
+  async function handleAddItem(data: {
+    name: string;
+    planned_amount: number;
+    actual_amount: number;
+    is_completed: boolean;
+    notes: string | null;
+  }) {
+    const trimmedName = data.name.trim();
+    if (!trimmedName) return;
     haptic.success();
-
     const tempId = `temp_${crypto.randomUUID()}`;
-    setItems((prev) => [
-      ...prev,
-      { id: tempId, name: trimmedName, planned: 0, actual: 0 },
-    ]);
-    setNewItemName("");
+    const newItem: BudgetItem = {
+      id: tempId,
+      name: trimmedName,
+      planned: data.planned_amount,
+      actual: data.actual_amount,
+      is_completed: data.is_completed,
+      notes: data.notes,
+    };
+    setItems((prev) => [...prev, newItem]);
     setValidationError("");
-
     try {
       const db = getDB();
       const now = new Date().toISOString();
-
       await db.budget_items.add({
         id: tempId,
         category_id: categoryId,
         user_id: "__pending__",
         name: trimmedName,
-        planned_amount: 0,
-        actual_amount: 0,
-        is_completed: false,
+        planned_amount: data.planned_amount,
+        actual_amount: data.actual_amount,
+        is_completed: data.is_completed,
+        notes: data.notes,
         created_at: now,
         updated_at: now,
       });
-
       await enqueue({
         table: "budget_items",
         operation: "INSERT",
         recordId: tempId,
         tempId,
-        payload: { categoryId, name: trimmedName, planned: 0 },
+        payload: {
+          categoryId,
+          name: trimmedName,
+          planned: data.planned_amount,
+          actual: data.actual_amount,
+          is_completed: data.is_completed,
+          notes: data.notes,
+        },
       });
-
       invalidateBudgetCaches();
     } catch {
       haptic.error();
       setItems((prev) => prev.filter((item) => item.id !== tempId));
-      setNewItemName(trimmedName);
       setValidationError("Couldn't add the item right now.");
     }
   }
 
-  async function handleUpdateItem(id: string, updates: Partial<BudgetItem>) {
+  async function handleUpdateItem(
+    id: string,
+    updates: {
+      name?: string;
+      planned_amount?: number;
+      actual_amount?: number;
+      is_completed?: boolean;
+      notes?: string | null;
+    }
+  ) {
     const previousItems = items;
     const nextItems = items.map((item) =>
-      item.id === id ? { ...item, ...updates } : item
+      item.id === id
+        ? {
+            ...item,
+            ...(updates.name !== undefined ? { name: updates.name } : {}),
+            ...(updates.planned_amount !== undefined ? { planned: updates.planned_amount } : {}),
+            ...(updates.actual_amount !== undefined ? { actual: updates.actual_amount } : {}),
+            ...(updates.is_completed !== undefined ? { is_completed: updates.is_completed } : {}),
+            ...(updates.notes !== undefined ? { notes: updates.notes } : {}),
+          }
+        : item
     );
 
-    if (updates.planned !== undefined) {
-      const validationMessage = getAllocationValidationMessage(
-        getAllocatedAmount(nextItems)
-      );
-      if (validationMessage) {
+    if (updates.planned_amount !== undefined) {
+      const nextTotal = nextItems.reduce((s, i) => s + i.planned, 0);
+      const errMsg = getItemAllocationError(nextTotal);
+      if (errMsg) {
         haptic.error();
-        setValidationError(validationMessage);
+        setValidationError(errMsg);
         return;
       }
     }
@@ -210,31 +236,23 @@ function CategoryDetailContent({
     setValidationError("");
     setItems(nextItems);
 
-    const idbUpdates: Record<string, string | number | boolean> = {};
+    const idbUpdates: Record<string, string | number | boolean | null> = {};
     if (updates.name !== undefined) idbUpdates.name = updates.name;
-    if (updates.planned !== undefined)
-      idbUpdates.planned_amount = updates.planned;
-    if (updates.actual !== undefined) idbUpdates.actual_amount = updates.actual;
+    if (updates.planned_amount !== undefined) idbUpdates.planned_amount = updates.planned_amount;
+    if (updates.actual_amount !== undefined) idbUpdates.actual_amount = updates.actual_amount;
+    if (updates.is_completed !== undefined) idbUpdates.is_completed = updates.is_completed;
+    if (updates.notes !== undefined) idbUpdates.notes = updates.notes;
     idbUpdates.updated_at = new Date().toISOString();
 
     try {
       const db = getDB();
       await db.budget_items.update(id, idbUpdates);
-
-      const serverUpdates: Record<string, string | number | boolean> = {};
-      if (updates.name !== undefined) serverUpdates.name = updates.name;
-      if (updates.planned !== undefined)
-        serverUpdates.planned_amount = updates.planned;
-      if (updates.actual !== undefined)
-        serverUpdates.actual_amount = updates.actual;
-
       await enqueue({
         table: "budget_items",
         operation: "UPDATE",
         recordId: id,
-        payload: { itemId: id, updates: serverUpdates },
+        payload: { itemId: id, updates },
       });
-
       invalidateBudgetCaches();
     } catch {
       haptic.error();
@@ -243,20 +261,42 @@ function CategoryDetailContent({
     }
   }
 
-  async function handleUpdateIcon(newIcon: string) {
-    setIcon(newIcon);
+  async function handleUpdateCategoryAllocation(newAmount: number) {
+    if (newAmount < 0) return;
+    const errMsg = getCategoryAllocationError(newAmount);
+    if (errMsg) {
+      haptic.error();
+      setValidationError(errMsg);
+      return;
+    }
+    setCategoryAllocation(newAmount);
+    setValidationError("");
     try {
       const db = getDB();
       await db.categories.update(categoryId, {
-        icon: newIcon,
+        allocated_amount: newAmount,
         updated_at: new Date().toISOString(),
       });
       await enqueue({
         table: "categories",
         operation: "UPDATE",
         recordId: categoryId,
-        payload: { categoryId, updates: { icon: newIcon } },
+        payload: { categoryId, updates: { allocated_amount: newAmount } },
       });
+      invalidateBudgetCaches();
+    } catch {
+      haptic.error();
+      setCategoryAllocation(data.categoryAllocation);
+      setValidationError("Couldn't update category budget.");
+    }
+  }
+
+  async function handleUpdateIcon(newIcon: string) {
+    setIcon(newIcon);
+    try {
+      const db = getDB();
+      await db.categories.update(categoryId, { icon: newIcon, updated_at: new Date().toISOString() });
+      await enqueue({ table: "categories", operation: "UPDATE", recordId: categoryId, payload: { categoryId, updates: { icon: newIcon } } });
       invalidateBudgetCaches();
     } catch {
       setIcon(data.icon || null);
@@ -269,16 +309,8 @@ function CategoryDetailContent({
     setName(trimmed);
     try {
       const db = getDB();
-      await db.categories.update(categoryId, {
-        name: trimmed,
-        updated_at: new Date().toISOString(),
-      });
-      await enqueue({
-        table: "categories",
-        operation: "UPDATE",
-        recordId: categoryId,
-        payload: { categoryId, updates: { name: trimmed } },
-      });
+      await db.categories.update(categoryId, { name: trimmed, updated_at: new Date().toISOString() });
+      await enqueue({ table: "categories", operation: "UPDATE", recordId: categoryId, payload: { categoryId, updates: { name: trimmed } } });
       invalidateBudgetCaches();
     } catch {
       setName(data.name);
@@ -289,20 +321,10 @@ function CategoryDetailContent({
     setIsConfirmDeleteOpen(false);
     try {
       const db = getDB();
-      // Delete all items in this category from IDB first
-      const itemIds = (
-        await db.budget_items.where("category_id").equals(categoryId).toArray()
-      ).map((i) => i.id);
+      const itemIds = (await db.budget_items.where("category_id").equals(categoryId).toArray()).map((i) => i.id);
       await db.budget_items.bulkDelete(itemIds);
       await db.categories.delete(categoryId);
-
-      await enqueue({
-        table: "categories",
-        operation: "DELETE",
-        recordId: categoryId,
-        payload: { categoryId },
-      });
-
+      await enqueue({ table: "categories", operation: "DELETE", recordId: categoryId, payload: { categoryId } });
       invalidateBudgetCaches();
       router.replace("/budget");
     } catch {
@@ -315,16 +337,10 @@ function CategoryDetailContent({
     const previousItems = items;
     setItems((prev) => prev.filter((item) => item.id !== id));
     setValidationError("");
-
     try {
       const db = getDB();
       await db.budget_items.delete(id);
-      await enqueue({
-        table: "budget_items",
-        operation: "DELETE",
-        recordId: id,
-        payload: { itemId: id },
-      });
+      await enqueue({ table: "budget_items", operation: "DELETE", recordId: id, payload: { itemId: id } });
       invalidateBudgetCaches();
     } catch {
       haptic.error();
@@ -333,241 +349,240 @@ function CategoryDetailContent({
     }
   }
 
+  function openItem(item: BudgetItem) {
+    haptic.selection();
+    setSelectedItem(item);
+  }
+
+  const otherItemsPlanned = selectedItem
+    ? items.filter((i) => i.id !== selectedItem.id).reduce((s, i) => s + i.planned, 0)
+    : 0;
+
   return (
     <div className="flex flex-col min-h-full">
       {/* Header */}
-      <header className="flex items-center justify-between px-6 pt-10 pb-5">
+      <header className="px-7 pt-14 pb-5 flex items-center justify-between">
         <button
           id="category-back"
-          onClick={() => {
-            haptic.light();
-            router.back();
-          }}
-          className="flex items-center justify-center size-10 rounded-full border border-border active:bg-muted transition-colors"
+          onClick={() => { haptic.light(); router.back(); }}
+          className="size-9 flex items-center justify-center border border-border text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
         >
-          <span className="material-symbols-outlined text-xl">arrow_back</span>
+          <span className="material-symbols-outlined text-[18px]">arrow_back</span>
         </button>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-2 flex-1 min-w-0 mx-4">
           <button
-            onClick={() => {
-              haptic.light();
-              setIsPickerOpen(true);
-            }}
-            className="flex items-center justify-center size-8 rounded-full bg-muted hover:bg-muted/80 transition-colors grayscale text-xl"
+            onClick={() => { haptic.light(); setIsPickerOpen(true); }}
+            className="shrink-0 text-xl grayscale"
             title="Choose Icon"
           >
             {icon || (
-              <span className="material-symbols-outlined text-sm text-muted-foreground">
-                add_reaction
-              </span>
+              <span className="material-symbols-outlined text-[18px] text-muted-foreground">add_reaction</span>
             )}
           </button>
-          <h1 className="text-lg font-bold tracking-tight text-foreground">
+          <h1 className="font-display text-[26px] leading-none tracking-[-0.02em] text-foreground truncate">
             <InlineEditableText
               value={name}
               onSave={handleUpdateCategoryName}
-              className="font-bold text-foreground max-w-50"
+              className="font-display text-[26px] text-foreground"
             />
           </h1>
         </div>
+
         <button
           id="category-delete"
-          onClick={() => {
-            haptic.heavy();
-            setIsConfirmDeleteOpen(true);
-          }}
-          className="flex items-center justify-center size-10 text-muted-foreground hover:text-red-500 transition-colors"
+          onClick={() => { haptic.heavy(); setIsConfirmDeleteOpen(true); }}
+          className="size-9 flex items-center justify-center text-muted-foreground hover:text-red-400 transition-colors"
           title="Delete Category"
         >
-          <span className="material-symbols-outlined text-xl">delete</span>
+          <span className="material-symbols-outlined text-[18px]">delete</span>
         </button>
       </header>
 
-      <div className="md:grid md:grid-cols-[1fr_1.5fr] md:gap-x-8 flex-1">
-        <div className="mb-6 md:mb-0 space-y-6">
-          {/* Summary Badges */}
-          <div className="px-4 grid grid-cols-3 gap-3">
-            <div className="flex flex-col gap-1 p-4 border border-border rounded-lg bg-card text-foreground">
-              <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-                Allocated
-              </span>
-              <span className="text-base font-bold tabular-nums">
-                {formatNum(allocated)}
-              </span>
-              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                Auto from items
-              </span>
+      {/* Hairline */}
+      <div className="h-px bg-border mx-7" />
+
+      <div className="md:grid md:grid-cols-[1fr_1.5fr] flex-1">
+        {/* Left — stats */}
+        <div className="md:border-r border-border">
+          {/* Stats row */}
+          <div className="px-7 py-6 grid grid-cols-3 gap-0 border-b border-border">
+            {/* Budget (editable) */}
+            <div className="flex flex-col gap-1 pr-4 border-r border-border">
+              <span className="font-mono text-[9px] tracking-[0.14em] uppercase text-muted-foreground">Budget</span>
+              <div className="font-display text-[22px] leading-none tracking-[-0.02em] text-foreground tabular-nums mt-1">
+                <InlineEditableNumber
+                  value={categoryAllocation}
+                  onSave={handleUpdateCategoryAllocation}
+                  className="font-display"
+                />
+              </div>
+              <span className="font-mono text-[9px] text-muted-foreground mt-0.5">tap to edit</span>
             </div>
 
-            {[
-              { label: "Used", value: used, highlight: false },
-              { label: "Left", value: left, highlight: true },
-            ].map(({ label, value, highlight }) => (
-              <div
-                key={label}
-                className={`flex flex-col gap-1 p-4 border border-border rounded-lg ${
-                  highlight ? "bg-muted" : "bg-card"
-                }`}
-              >
-                <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-                  {label}
-                </span>
-                <span className="text-base font-bold tabular-nums text-foreground">
-                  {formatNum(value)}
-                </span>
+            {/* Spent */}
+            <div className="flex flex-col gap-1 px-4 border-r border-border">
+              <span className="font-mono text-[9px] tracking-[0.14em] uppercase text-muted-foreground">Spent</span>
+              <div className="font-display text-[22px] leading-none tracking-[-0.02em] text-foreground tabular-nums mt-1">
+                {fmt(totalActual)}
               </div>
-            ))}
+            </div>
+
+            {/* Left */}
+            <div className="flex flex-col gap-1 pl-4">
+              <span className="font-mono text-[9px] tracking-[0.14em] uppercase text-muted-foreground">Left</span>
+              <div
+                className="font-display text-[22px] leading-none tracking-[-0.02em] tabular-nums mt-1"
+                style={{ color: left < 0 ? "#ef4444" : "var(--foreground)" }}
+              >
+                {fmt(left)}
+              </div>
+            </div>
           </div>
 
-          <div className="px-4 space-y-1">
-            <p className="text-[11px] tabular-nums text-muted-foreground">
-              Total budget {formatNum(data.totalBudget)} • Total allocated{" "}
-              {formatNum(totalAllocated)}
+          {/* Progress bar */}
+          <div className="px-7 py-4 border-b border-border">
+            <SegBar pct={pct} segments={30} />
+            <div className="flex justify-between mt-2">
+              <span className="font-mono text-[9px] text-muted-foreground">
+                {Math.round(pct * 100)}% used
+              </span>
+              <span className="font-mono text-[9px] text-muted-foreground tabular-nums">
+                {fmt(totalActual)} / {fmt(categoryAllocation)}
+              </span>
+            </div>
+          </div>
+
+          {/* Budget context */}
+          <div className="px-7 py-4 space-y-1">
+            <p className="font-mono text-[10px] tabular-nums text-muted-foreground">
+              Total {fmt(data.totalBudget)} · Other {fmt(data.otherAllocated)}
             </p>
-            <p className="text-[11px] tabular-nums text-muted-foreground">
-              Category cap {formatNum(categoryBudgetCap)} • Other categories{" "}
-              {formatNum(data.otherAllocated)}
+            <p className="font-mono text-[10px] tabular-nums text-muted-foreground">
+              {fmt(totalPlanned)} planned
+              {categoryAllocation > 0 ? ` · ${fmt(Math.max(0, categoryAllocation - totalPlanned))} unplanned` : ""}
             </p>
             {data.totalBudget <= 0 ? (
-              <>
-                <p className="text-xs text-muted-foreground">
-                  Set the Total Budget on the budget page before allocating item
-                  amounts here.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    haptic.light();
-                    router.back();
-                  }}
-                  className="inline-flex text-xs font-semibold text-primary underline underline-offset-4 decoration-primary/40"
-                >
-                  Go back and set it
-                </button>
-              </>
+              <button
+                type="button"
+                onClick={() => { haptic.light(); router.back(); }}
+                className="font-mono text-[10px] text-foreground underline underline-offset-4"
+              >
+                Set Total Budget first →
+              </button>
             ) : remainingBudgetCapacity < 0 ? (
-              <p className="text-xs text-red-400">
-                This budget is {formatNum(Math.abs(remainingBudgetCapacity))} over
-                the total budget cap.
+              <p className="font-mono text-[10px] text-red-400">
+                {fmt(Math.abs(remainingBudgetCapacity))} over total budget cap.
               </p>
             ) : (
-              <p className="text-xs text-muted-foreground">
-                {formatNum(remainingBudgetCapacity)} still available before this
-                budget hits the top limit.
+              <p className="font-mono text-[10px] text-muted-foreground">
+                {fmt(remainingBudgetCapacity)} still unallocated.
               </p>
             )}
-            {validationError ? (
-              <p className="text-xs text-red-400">{validationError}</p>
-            ) : null}
+            {validationError && (
+              <p className="font-mono text-[10px] text-red-400">{validationError}</p>
+            )}
           </div>
         </div>
 
+        {/* Right — items */}
         <div className="flex flex-col flex-1">
-          {/* Items Section Label */}
-          <div className="px-6 pb-2 flex justify-between items-end">
-            <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+          {/* Items header */}
+          <div className="px-7 py-4 flex justify-between items-baseline border-b border-border">
+            <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
               Items
-            </h2>
-            <span className="text-[10px] text-muted-foreground tabular-nums">
+            </span>
+            <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
               {items.length} total
             </span>
           </div>
 
-          {/* Item List */}
-          <div className="flex-1 px-4">
-            {items.map((item) => (
-              <div
-                key={item.id}
-                className="group flex gap-3 items-center justify-between py-4 border-b border-border"
-              >
-                <div className="flex flex-col gap-1 flex-1 min-w-0">
-                  <span className="text-sm font-medium text-foreground truncate w-full">
-                    <InlineEditableText
-                      value={item.name}
-                      onSave={(val) => handleUpdateItem(item.id, { name: val })}
-                      className="max-w-full text-foreground"
-                    />
-                  </span>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground tabular-nums">
-                    <span className="flex items-center gap-1">
-                      Allocated:{" "}
-                      <InlineEditableNumber
-                        value={item.planned}
-                        onSave={(val) =>
-                          handleUpdateItem(item.id, { planned: val })
-                        }
-                        className="text-xs text-foreground"
-                      />
-                    </span>
-                    <span className="flex items-center gap-1">
-                      Used:{" "}
-                      <InlineEditableNumber
-                        value={item.actual}
-                        onSave={(val) => handleUpdateItem(item.id, { actual: val })}
-                        className="text-xs text-foreground"
-                      />
+          {/* Item list */}
+          <div className="flex-1 px-7">
+            {items.map((item, idx) => {
+              const itemPct = item.planned > 0 ? Math.min(1, item.actual / item.planned) : 0;
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => openItem(item)}
+                  className="w-full text-left py-4 border-b border-border active:bg-muted/30 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex flex-col gap-1 flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[9px] text-muted-foreground shrink-0">
+                          {String(idx + 1).padStart(2, "0")}
+                        </span>
+                        {item.is_completed && (
+                          <span
+                            className="material-symbols-outlined text-sm text-foreground shrink-0"
+                            style={{ fontVariationSettings: "'FILL' 1" }}
+                          >
+                            check_circle
+                          </span>
+                        )}
+                        <span
+                          className={`text-[15px] font-medium truncate ${
+                            item.is_completed ? "line-through text-muted-foreground" : "text-foreground"
+                          }`}
+                        >
+                          {item.name}
+                        </span>
+                      </div>
+                      <div className="font-mono text-[10px] text-muted-foreground tabular-nums">
+                        <span>{fmt(item.actual)} spent</span>
+                        {item.planned > 0 && (
+                          <span style={{ color: "var(--dimmer)" }}> of {fmt(item.planned)}</span>
+                        )}
+                      </div>
+                      {item.planned > 0 && (
+                        <SegBar pct={itemPct} segments={16} />
+                      )}
+                      {item.notes && (
+                        <p className="font-mono text-[9px] text-muted-foreground truncate mt-0.5">
+                          {item.notes}
+                        </p>
+                      )}
+                    </div>
+                    <span
+                      className="material-symbols-outlined text-[16px] shrink-0 mt-0.5"
+                      style={{ color: "var(--dimmer)" }}
+                    >
+                      chevron_right
                     </span>
                   </div>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <button
-                    id={`delete-item-${item.id}`}
-                    onClick={() => handleDeleteItem(item.id)}
-                    className="opacity-100 text-muted-foreground hover:text-red-400 transition-colors"
-                    title="Delete Item"
-                  >
-                    <span className="material-symbols-outlined text-base">
-                      delete
-                    </span>
-                  </button>
-                </div>
-              </div>
-            ))}
+                </button>
+              );
+            })}
 
-            {/* Inline Add New Item */}
-            <div className="flex items-center justify-between py-4 border-b border-border">
-              <input
-                id="add-item-input"
-                type="text"
-                placeholder="Add new item..."
-                value={newItemName}
-                onChange={(e) => setNewItemName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleAddItem();
-                }}
-                className="flex-1 bg-transparent border-none p-0 text-sm font-normal placeholder:text-muted-foreground text-foreground focus:outline-none focus:ring-0"
-              />
-              <button
-                id="add-item-confirm"
-                onClick={handleAddItem}
-                className="text-muted-foreground hover:text-primary transition-colors"
-              >
-                <span className="material-symbols-outlined text-lg">
-                  add_circle
-                </span>
-              </button>
-            </div>
+            {/* Add item */}
+            <button
+              id="add-item-btn"
+              type="button"
+              onClick={() => {
+                haptic.light();
+                setSelectedItem({
+                  id: NEW_ITEM_ID,
+                  name: "",
+                  planned: 0,
+                  actual: 0,
+                  is_completed: false,
+                  notes: null,
+                });
+              }}
+              className="w-full flex items-center gap-2 py-4 font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <span className="material-symbols-outlined text-[16px]">add</span>
+              Add Item
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Progress Bar Footer */}
-      <div className="px-4 py-5 mt-auto">
-        <div className="w-full bg-muted h-1 rounded-full overflow-hidden">
-          <div
-            className="bg-primary h-full rounded-full transition-all duration-300"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-        <div className="flex justify-between mt-2">
-          <span className="text-[10px] text-muted-foreground font-medium">
-            {pct}% spent
-          </span>
-          <span className="text-[10px] text-muted-foreground tabular-nums">
-            {formatNum(used)} / {formatNum(allocated)}
-          </span>
-        </div>
-      </div>
+      {/* Bottom spacer */}
+      <div className="h-24 md:h-8" />
 
       <EmojiPickerModal
         isOpen={isPickerOpen}
@@ -583,6 +598,15 @@ function CategoryDetailContent({
         description="All items within this category will be deleted. This cannot be undone."
         confirmText="Delete Category"
         cancelText="Keep Category"
+      />
+
+      <ItemDetailSheet
+        item={selectedItem}
+        category={{ name, icon, allocation: categoryAllocation, otherItemsPlanned }}
+        onClose={() => setSelectedItem(null)}
+        onSave={async (itemId, updates) => { await handleUpdateItem(itemId, updates); }}
+        onCreate={async (data) => { await handleAddItem(data); }}
+        onDelete={handleDeleteItem}
       />
     </div>
   );

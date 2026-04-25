@@ -47,9 +47,12 @@ export async function hydrateAllTables(): Promise<void> {
     { data: budgetItems },
     { data: goals },
     { data: assets },
+    { data: assetCategories },
+    { data: assetValueHistory },
     { data: debts },
     { data: reports },
     { data: snapshots },
+    { data: activityLogs },
   ] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", userId),
     supabase.from("budgets").select("*").eq("user_id", userId),
@@ -57,6 +60,13 @@ export async function hydrateAllTables(): Promise<void> {
     supabase.from("budget_items").select("*").eq("user_id", userId),
     supabase.from("goals").select("*").eq("user_id", userId),
     supabase.from("assets").select("*").eq("user_id", userId),
+    supabase.from("asset_categories").select("*").eq("user_id", userId),
+    supabase
+      .from("asset_value_history")
+      .select("*")
+      .eq("user_id", userId)
+      .order("entry_date", { ascending: false })
+      .limit(500),
     supabase.from("debts").select("*").eq("user_id", userId),
     supabase.from("reports").select("*").eq("user_id", userId),
     supabase
@@ -65,6 +75,12 @@ export async function hydrateAllTables(): Promise<void> {
       .eq("user_id", userId)
       .order("snapshot_date", { ascending: true })
       .limit(24),
+    supabase
+      .from("activity_logs")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(200),
   ]);
 
   const now = Date.now();
@@ -79,10 +95,20 @@ export async function hydrateAllTables(): Promise<void> {
       : Promise.resolve(),
     goals?.length ? db.goals.bulkPut(goals) : Promise.resolve(),
     assets?.length ? db.assets.bulkPut(assets) : Promise.resolve(),
+    assetCategories?.length
+      ? db.asset_categories.bulkPut(assetCategories)
+      : Promise.resolve(),
+    assetValueHistory?.length
+      ? db.asset_value_history.bulkPut(assetValueHistory)
+      : Promise.resolve(),
     debts?.length ? db.debts.bulkPut(debts) : Promise.resolve(),
     reports?.length ? db.reports.bulkPut(reports) : Promise.resolve(),
     snapshots?.length
       ? db.net_worth_snapshots.bulkPut(snapshots)
+      : Promise.resolve(),
+    activityLogs?.length
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? db.activity_logs.bulkPut(activityLogs as any)
       : Promise.resolve(),
   ]);
 
@@ -94,9 +120,12 @@ export async function hydrateAllTables(): Promise<void> {
     "budget_items",
     "goals",
     "assets",
+    "asset_categories",
+    "asset_value_history",
     "debts",
     "reports",
     "net_worth_snapshots",
+    "activity_logs",
   ] as const;
 
   await db.sync_meta.bulkPut(
@@ -115,6 +144,8 @@ export async function refreshTableIfStale(
     | "budget_items"
     | "goals"
     | "assets"
+    | "asset_categories"
+    | "asset_value_history"
     | "debts"
     | "net_worth_snapshots"
     | "reports"
@@ -149,9 +180,12 @@ export async function clearDB(): Promise<void> {
     db.budget_items.clear(),
     db.goals.clear(),
     db.assets.clear(),
+    db.asset_categories.clear(),
+    db.asset_value_history.clear(),
     db.debts.clear(),
     db.reports.clear(),
     db.net_worth_snapshots.clear(),
+    db.activity_logs.clear(),
     db.id_map.clear(),
     db.sync_meta.clear(),
     db.sync_queue.clear(),

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { logActivity, fmt } from "@/lib/server/activity-logger";
 
 export async function addGoal(name: string, targetAmount: number) {
   const supabase = await createClient();
@@ -19,6 +20,15 @@ export async function addGoal(name: string, targetAmount: number) {
     .single();
 
   if (error) throw new Error(error.message);
+
+  await logActivity(supabase, user.id, {
+    action_type: "goal_added",
+    category: "goals",
+    title: `Created goal "${name}"`,
+    description: `New savings goal "${name}" with target ${fmt(targetAmount)}`,
+    metadata: { goalId: data.id, name, target_amount: targetAmount },
+  });
+
   return data;
 }
 
@@ -36,6 +46,37 @@ export async function updateGoal(id: string, updates: { name?: string; current_a
     .single();
 
   if (error) throw new Error(error.message);
+
+  const goalName = data.name;
+  let title: string;
+  let action_type: string;
+  if (updates.current_amount !== undefined) {
+    action_type = "goal_progress_updated";
+    title = `Updated "${goalName}" progress to ${fmt(updates.current_amount)}`;
+  } else if (updates.target_amount !== undefined) {
+    action_type = "goal_target_updated";
+    title = `Set "${goalName}" target to ${fmt(updates.target_amount)}`;
+  } else if (updates.name !== undefined) {
+    action_type = "goal_renamed";
+    title = `Renamed goal to "${updates.name}"`;
+  } else {
+    action_type = "goal_updated";
+    title = `Updated goal "${goalName}"`;
+  }
+
+  await logActivity(supabase, user.id, {
+    action_type,
+    category: "goals",
+    title,
+    description: title,
+    metadata: {
+      goalId: id,
+      name: goalName,
+      ...(updates.current_amount !== undefined ? { current_amount: updates.current_amount } : {}),
+      ...(updates.target_amount !== undefined ? { target_amount: updates.target_amount } : {}),
+    },
+  });
+
   return data;
 }
 
@@ -44,6 +85,13 @@ export async function deleteGoal(id: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
+  const { data: goal } = await supabase
+    .from("goals")
+    .select("name")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .single();
+
   const { error } = await supabase
     .from("goals")
     .delete()
@@ -51,6 +99,15 @@ export async function deleteGoal(id: string) {
     .eq("user_id", user.id);
 
   if (error) throw new Error(error.message);
+
+  await logActivity(supabase, user.id, {
+    action_type: "goal_deleted",
+    category: "goals",
+    title: `Deleted goal "${goal?.name ?? id}"`,
+    description: `Savings goal "${goal?.name ?? id}" was deleted`,
+    metadata: { goalId: id, name: goal?.name ?? null },
+  });
+
   return true;
 }
 

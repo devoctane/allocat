@@ -30,4 +30,5 @@ export type {
   DebtRow,
   ReportRow,
   SnapshotRow,
+  ActivityLogRow,
 } from "./AllocatDB";

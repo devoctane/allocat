@@ -129,13 +129,9 @@ export default function DebtPage({ data }: { data: Debt[] }) {
   return (
     <>
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md px-4 pt-10 pb-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold tracking-tight text-foreground">Debt Management</h1>
-          <button id="debt-more" className="p-2 hover:bg-muted rounded-full">
-            <span className="material-symbols-outlined text-foreground text-xl">more_vert</span>
-          </button>
-        </div>
+      <header className="px-7 pt-14 pb-[18px] border-b border-border">
+        <div className="font-display text-[32px] leading-none tracking-[-0.02em] text-foreground">Debt</div>
+        <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground mt-2">Liability Tracker</div>
       </header>
 
       <main className="px-4 pb-6 transition-opacity">

@@ -5,31 +5,11 @@ import { usePathname } from "next/navigation";
 import { useHaptic } from "@/lib/hooks/useHaptic";
 
 const navItems = [
-  {
-    label: "Dashboard",
-    href: "/dashboard",
-    icon: "dashboard",
-  },
-  {
-    label: "Budget",
-    href: "/budget",
-    icon: "account_balance_wallet",
-  },
-  {
-    label: "Net Worth",
-    href: "/net-worth",
-    icon: "pie_chart",
-  },
-  {
-    label: "Debt",
-    href: "/debt",
-    icon: "credit_card",
-  },
-  {
-    label: "Profile",
-    href: "/profile",
-    icon: "person",
-  },
+  { label: "Dashboard", href: "/dashboard", icon: "dashboard" },
+  { label: "Budget", href: "/budget", icon: "account_balance_wallet" },
+  { label: "Net Worth", href: "/net-worth", icon: "pie_chart" },
+  { label: "Debt", href: "/debt", icon: "credit_card" },
+  { label: "Profile", href: "/profile", icon: "person" },
 ];
 
 export default function BottomNav() {
@@ -37,7 +17,7 @@ export default function BottomNav() {
   const haptic = useHaptic();
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] bg-card/90 backdrop-blur-md border-t border-border px-6 pt-3 pb-7 z-50">
+    <nav className="md:hidden fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] bg-background/95 backdrop-blur-md border-t border-border px-4 pt-3 pb-7 z-50">
       <div className="flex items-center justify-between">
         {navItems.map((item) => {
           const isActive =
@@ -48,12 +28,12 @@ export default function BottomNav() {
               key={item.href}
               href={item.href}
               onClick={() => haptic.light()}
-              className={`flex flex-1 flex-col items-center gap-1 ${
-                isActive ? "text-foreground" : "text-muted-foreground"
+              className={`flex flex-1 flex-col items-center gap-1 transition-opacity ${
+                isActive ? "opacity-100" : "opacity-40"
               }`}
             >
               <span
-                className="material-symbols-outlined text-2xl"
+                className="material-symbols-outlined text-[22px] text-foreground"
                 style={
                   isActive
                     ? { fontVariationSettings: "'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24" }
@@ -62,11 +42,7 @@ export default function BottomNav() {
               >
                 {item.icon}
               </span>
-              <span
-                className={`text-[10px] font-bold uppercase tracking-tighter ${
-                  isActive ? "text-foreground" : "text-muted-foreground"
-                }`}
-              >
+              <span className="font-mono text-[8px] tracking-[0.12em] uppercase text-foreground">
                 {item.label}
               </span>
             </Link>

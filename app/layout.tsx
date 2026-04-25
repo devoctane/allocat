@@ -1,12 +1,26 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google"; // Using Plus Jakarta Sans as the closest free alternative to Gilroy
+import { Inter_Tight, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import QueryProvider from "@/lib/providers/QueryProvider";
 import { ThemeProvider } from "@/lib/providers/ThemeProvider";
 
-const jakarta = Plus_Jakarta_Sans({ 
+const interTight = Inter_Tight({
   subsets: ["latin"],
-  variable: '--font-sans',
+  variable: "--font-sans",
+  weight: ["300", "400", "500", "600"],
+});
+
+const instrumentSerif = Instrument_Serif({
+  subsets: ["latin"],
+  variable: "--font-display",
+  weight: ["400"],
+  style: ["normal", "italic"],
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
@@ -36,7 +50,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#000000",
+  themeColor: "#0a0a0a",
 };
 
 export default function RootLayout({
@@ -55,7 +69,9 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block"
         />
       </head>
-      <body className={`${jakarta.variable} font-sans antialiased text-foreground bg-background`}>
+      <body
+        className={`${interTight.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} font-sans antialiased text-foreground bg-background`}
+      >
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
