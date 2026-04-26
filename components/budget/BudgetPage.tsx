@@ -196,7 +196,7 @@ export default function BudgetPage({ data, defaultMonth, defaultYear }: BudgetPa
           <div className="h-px bg-border mx-7" />
 
           {/* Hero Budget */}
-          <div className="px-7 pt-[26px] pb-[22px]">
+          <div id="budget-hero-section" className="px-7 pt-[26px] pb-[22px]">
             <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
               Total Budget · {monthName.substring(0, 3)}
             </div>
@@ -224,7 +224,7 @@ export default function BudgetPage({ data, defaultMonth, defaultYear }: BudgetPa
           <div className="h-px bg-border mx-7" />
 
           {/* Spend Meter */}
-          <div className="px-7 pt-[22px] pb-5">
+          <div id="budget-spend-meter" className="px-7 pt-[22px] pb-5">
             <div className="flex justify-between items-baseline">
               <div>
                 <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
@@ -251,7 +251,9 @@ export default function BudgetPage({ data, defaultMonth, defaultYear }: BudgetPa
                 </div>
               </div>
             </div>
+            <div id="budget-tick-ruler">
             <TickRuler pct={Math.min(spentPct, 100)} />
+            </div>
             <div
               className="flex justify-between mt-1.5 font-mono text-[9px] tracking-[0.08em]"
               style={{ color: "var(--dimmer)" }}
@@ -272,7 +274,7 @@ export default function BudgetPage({ data, defaultMonth, defaultYear }: BudgetPa
         <div>
           {/* Categories header */}
             <div className="md:border-l border-border">
-            <div className="px-7 pt-5 md:pt-[72px] pb-3 flex items-baseline justify-between border-b border-border">
+            <div id="budget-categories-header" className="px-7 pt-5 md:pt-[72px] pb-3 flex items-baseline justify-between border-b border-border">
               <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground tabular-nums">
                 Categories · {data.categories.length}
               </div>
@@ -333,6 +335,7 @@ export default function BudgetPage({ data, defaultMonth, defaultYear }: BudgetPa
                   return (
                     <Link
                       key={cat.id}
+                      id={i === 0 ? "budget-category-row-0" : undefined}
                       href={`/budget/${cat.id}`}
                       onClick={() => haptic.selection()}
                       className="block"
@@ -391,7 +394,7 @@ export default function BudgetPage({ data, defaultMonth, defaultYear }: BudgetPa
       {/* FAB */}
       <div className="fixed bottom-24 right-6 z-40 md:hidden">
         <button
-          id="add-budget-category"
+          id="budget-fab-add"
           type="button"
           onClick={openAddCategory}
           className="flex size-14 items-center justify-center rounded-full bg-foreground text-background shadow-lg shadow-black/30 active:scale-95 transition-transform"

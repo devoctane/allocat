@@ -5,6 +5,9 @@ import DashboardEmptyState from "@/components/dashboard/DashboardEmptyState";
 import Link from "next/link";
 import { useDashboardData } from "@/lib/hooks/useDashboard";
 import AIOverlay from "@/components/ai/AIOverlay";
+import { useTour } from "@/lib/tour/useTour";
+import { useTourDriver } from "@/lib/tour/useTourDriver";
+import { mockDashboardData } from "@/lib/tour/mockData";
 
 function DashboardSkeleton() {
   return (
@@ -33,10 +36,13 @@ function DashboardSkeleton() {
 
 export default function Dashboard() {
   const { data, isLoading, isError } = useDashboardData();
+  const tour = useTour();
+  const tourActive = tour.isPageTourActive("dashboard");
+  useTourDriver("dashboard");
 
-  if (isLoading) return <DashboardSkeleton />;
+  if (isLoading && !tourActive) return <DashboardSkeleton />;
 
-  if (isError || !data) {
+  if (isError || (!data && !tourActive)) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4 px-6">
         <p className="text-sm text-muted-foreground">Failed to load dashboard</p>
@@ -44,10 +50,13 @@ export default function Dashboard() {
     );
   }
 
+  const displayData = tourActive ? mockDashboardData : data!;
+
   const isEmpty =
-    !data.budget &&
-    data.goals.length === 0 &&
-    data.netWorthHistory.length === 0;
+    !tourActive &&
+    !data?.budget &&
+    (data?.goals.length ?? 0) === 0 &&
+    (data?.netWorthHistory.length ?? 0) === 0;
 
   if (isEmpty) {
     return (
@@ -69,7 +78,7 @@ export default function Dashboard() {
 
   return (
     <>
-      <DashboardPage data={data} />
+      <DashboardPage data={displayData} />
       <AIOverlay />
     </>
   );

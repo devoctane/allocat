@@ -2,6 +2,9 @@
 
 import NetWorthPage from "@/components/net-worth/NetWorthPage";
 import { useNetWorthData } from "@/lib/hooks/useNetWorth";
+import { useTour } from "@/lib/tour/useTour";
+import { useTourDriver } from "@/lib/tour/useTourDriver";
+import { mockNetWorthData } from "@/lib/tour/mockData";
 
 function NetWorthSkeleton() {
   return (
@@ -48,10 +51,13 @@ function NetWorthSkeleton() {
 
 export default function NetWorth() {
   const { data, isLoading, isError } = useNetWorthData();
+  const tour = useTour();
+  const tourActive = tour.isPageTourActive("net-worth");
+  useTourDriver("net-worth");
 
-  if (isLoading) return <NetWorthSkeleton />;
+  if (isLoading && !tourActive) return <NetWorthSkeleton />;
 
-  if (isError || !data) {
+  if ((isError || !data) && !tourActive) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4 px-6">
         <p className="text-sm text-muted-foreground">Failed to load net worth data</p>
@@ -59,5 +65,7 @@ export default function NetWorth() {
     );
   }
 
-  return <NetWorthPage data={data} />;
+  const displayData = tourActive ? mockNetWorthData : data!;
+
+  return <NetWorthPage data={displayData} />;
 }

@@ -5,9 +5,11 @@ import { MaterialSymbol } from "@/components/ui/MaterialSymbol";
 import ThemeSelector from "@/components/profile/ThemeSelector";
 import { signOut } from "@/lib/actions/auth";
 import { useProfile } from "@/lib/hooks/useProfile";
+import { useTour } from "@/lib/tour/useTour";
 
 export default function ProfilePage() {
   const { data: profile } = useProfile();
+  const tour = useTour();
 
   return (
     <div className="pt-6 px-6 max-w-2xl mx-auto space-y-12 pb-24">
@@ -76,6 +78,57 @@ export default function ProfilePage() {
         </div>
 
         <ThemeSelector />
+      </section>
+
+      {/* Helper / Tour Section */}
+      <section className="space-y-6">
+        <div className="flex items-end gap-3 mb-2">
+          <h3 className="text-lg font-bold tracking-tight uppercase text-foreground">Helper</h3>
+          <div className="h-px bg-border flex-grow mb-2"></div>
+        </div>
+
+        <div className="space-y-1">
+          <div className="flex justify-between items-center p-5 bg-card/50 border border-border">
+            <div className="flex items-center gap-4">
+              <MaterialSymbol icon="lightbulb" className="text-muted-foreground" />
+              <div>
+                <span className="font-bold tracking-tight text-foreground block">Guided Tours</span>
+                <span className="font-mono text-[10px] tracking-[0.1em] uppercase text-muted-foreground">
+                  Show section guides on first visit
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={tour.enabled}
+              onClick={() => tour.setEnabled(!tour.enabled)}
+              className={`relative w-11 h-6 rounded-full transition-colors ${
+                tour.enabled ? "bg-foreground" : "bg-border"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-background shadow transition-transform ${
+                  tour.enabled ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => tour.resetTour()}
+            className="w-full flex justify-between items-center p-5 bg-card/50 border border-border hover:bg-muted transition-colors group"
+          >
+            <div className="flex items-center gap-4">
+              <MaterialSymbol icon="replay" className="text-muted-foreground" />
+              <span className="font-bold tracking-tight text-foreground">Reset All Tours</span>
+            </div>
+            <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground group-hover:text-foreground transition-colors">
+              Reset →
+            </span>
+          </button>
+        </div>
       </section>
 
       {/* Actions */}

@@ -15,6 +15,19 @@ import {
   useUpdateGoalIcon,
 } from "@/lib/hooks/useGoals";
 
+type GoalRow = {
+  id: string;
+  user_id: string;
+  name: string;
+  icon: string | null;
+  target_amount: number;
+  current_amount: number;
+  notes: string | null;
+  priority: number;
+  created_at: string;
+  updated_at: string;
+};
+
 function SegBar({ pct, segments = 20 }: { pct: number; segments?: number }) {
   return (
     <div className="flex gap-[2px] mt-2.5">
@@ -32,10 +45,15 @@ function SegBar({ pct, segments = 20 }: { pct: number; segments?: number }) {
   );
 }
 
-export default function GoalsPage() {
+interface GoalsPageProps {
+  overrideGoals?: GoalRow[];
+}
+
+export default function GoalsPage({ overrideGoals }: GoalsPageProps) {
   const router = useRouter();
   const haptic = useHaptic();
-  const { data: goals = [], isLoading } = useGoalsData();
+  const { data: fetchedGoals = [], isLoading } = useGoalsData();
+  const goals = overrideGoals ?? fetchedGoals;
 
   const addGoalMutation = useAddGoal();
   const updateGoalMutation = useUpdateGoal();
@@ -146,7 +164,7 @@ export default function GoalsPage() {
         {/* ── Quick Progress Update ─────────────────────────────── */}
         {goals.length > 0 && (
           <>
-            <div className="px-7 pt-5 pb-1 flex justify-between items-baseline">
+            <div id="goals-quick-section" className="px-7 pt-5 pb-1 flex justify-between items-baseline">
               <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
                 Quick Update
               </span>
@@ -212,11 +230,12 @@ export default function GoalsPage() {
         )}
 
         {/* ── Goals List ───────────────────────────────────────── */}
-        <div className="px-7 pt-5 pb-1 flex justify-between items-baseline">
+        <div id="goals-list-header" className="px-7 pt-5 pb-1 flex justify-between items-baseline">
           <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
             All Goals · {goals.length}
           </span>
           <button
+            id="goals-add-btn"
             onClick={() => { haptic.light(); openAddSheet(); }}
             className="font-mono text-[10px] tracking-[0.14em] uppercase text-foreground underline underline-offset-2 decoration-foreground/30 hover:decoration-foreground transition-all"
           >
@@ -255,6 +274,7 @@ export default function GoalsPage() {
                 return (
                   <button
                     key={goal.id}
+                    id={i === 0 ? "goals-goal-row-0" : undefined}
                     onClick={() => { haptic.light(); openEditSheet(goal); }}
                     className="w-full text-left"
                     style={{

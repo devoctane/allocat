@@ -316,7 +316,7 @@ export default function NetWorthPage({ data }: { data: NetWorthData }) {
       <div className="h-px bg-border mx-7" />
 
       {/* Hero — total net worth */}
-      <div className="px-7 pt-[26px] pb-[22px]">
+      <div id="net-worth-hero" className="px-7 pt-[26px] pb-[22px]">
         <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
           Total net worth
         </div>
@@ -359,12 +359,14 @@ export default function NetWorthPage({ data }: { data: NetWorthData }) {
       </div>
 
       {/* Monthly net worth trend chart */}
+      <div id="net-worth-chart-section">
       <NetWorthVariationChart history={history} />
+      </div>
 
       <div className="h-px bg-border mx-7" />
 
       {/* Asset distribution */}
-      <div className="px-7 pt-5 pb-3 flex justify-between items-baseline">
+      <div id="net-worth-distribution-section" className="px-7 pt-5 pb-3 flex justify-between items-baseline">
         <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
           Asset distribution
         </div>
@@ -381,6 +383,7 @@ export default function NetWorthPage({ data }: { data: NetWorthData }) {
       <div className="h-px bg-border mx-7" />
 
       {/* Category groups — ledger style */}
+      <div id="net-worth-assets-section">
       {Array.from(categoryGroups.values()).map((group) => {
         const groupTotal = group.assets.reduce((s, a) => s + a.value, 0);
         return (
@@ -448,6 +451,7 @@ export default function NetWorthPage({ data }: { data: NetWorthData }) {
           </div>
         );
       })}
+      </div>
 
       {/* Bottom spacer for mobile nav */}
       <div className="h-8" />
@@ -458,6 +462,7 @@ export default function NetWorthPage({ data }: { data: NetWorthData }) {
         style={{ borderTop: "1px solid var(--border)" }}
       >
         <button
+          id="net-worth-add-btn"
           onClick={() => openAddSheet()}
           className="w-full py-[14px] flex items-center justify-center gap-2.5 font-mono text-[11px] tracking-[0.18em] uppercase text-foreground border border-foreground hover:bg-foreground hover:text-background transition-colors active:scale-[0.99]"
         >

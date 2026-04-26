@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "driver.js/dist/driver.css";
 
 @theme inline {
   --color-background: var(--background);
@@ -102,3 +103,108 @@ input[type="date"] {
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ===== Driver.js Tour Overrides ===== */
+
+.allocat-tour-popover {
+  background: var(--background) !important;
+  border: 1px solid var(--foreground) !important;
+  border-radius: 0 !important;
+  padding: 20px 20px 16px !important;
+  box-shadow: 0 0 0 1px var(--border), 0 8px 32px rgba(0,0,0,0.4) !important;
+  min-width: 260px !important;
+  max-width: 320px !important;
+}
+
+.allocat-tour-popover .driver-popover-title {
+  font-family: var(--font-mono), ui-monospace, monospace !important;
+  font-size: 10px !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: var(--foreground) !important;
+  font-weight: 600 !important;
+  margin-bottom: 8px !important;
+  line-height: 1.4 !important;
+}
+
+.allocat-tour-popover .driver-popover-description {
+  font-family: var(--font-sans), system-ui, sans-serif !important;
+  font-size: 13px !important;
+  color: var(--muted-foreground) !important;
+  line-height: 1.55 !important;
+  margin-bottom: 16px !important;
+}
+
+.allocat-tour-popover .driver-popover-progress-text {
+  font-family: var(--font-mono), ui-monospace, monospace !important;
+  font-size: 9px !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+  color: var(--muted-foreground) !important;
+}
+
+.allocat-tour-popover .driver-popover-footer {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  padding-top: 12px !important;
+  border-top: 1px solid var(--border) !important;
+  margin-top: 0 !important;
+}
+
+.allocat-tour-popover .driver-popover-btn-disabled {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.allocat-tour-popover button {
+  font-family: var(--font-mono), ui-monospace, monospace !important;
+  font-size: 9px !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  padding: 8px 14px !important;
+  border-radius: 0 !important;
+  border: 1px solid var(--border) !important;
+  background: transparent !important;
+  color: var(--muted-foreground) !important;
+  cursor: pointer !important;
+  transition: background 0.15s, color 0.15s, border-color 0.15s !important;
+}
+
+.allocat-tour-popover button:hover {
+  background: var(--muted) !important;
+  color: var(--foreground) !important;
+}
+
+.allocat-tour-popover .driver-popover-next-btn {
+  background: var(--foreground) !important;
+  color: var(--background) !important;
+  border-color: var(--foreground) !important;
+}
+
+.allocat-tour-popover .driver-popover-next-btn:hover {
+  opacity: 0.85 !important;
+}
+
+.allocat-tour-popover .driver-popover-close-btn {
+  border: none !important;
+  font-size: 14px !important;
+  padding: 4px 8px !important;
+  opacity: 0.4 !important;
+}
+
+.allocat-tour-popover .driver-popover-close-btn:hover {
+  background: transparent !important;
+  opacity: 1 !important;
+}
+
+.allocat-tour-popover .driver-popover-arrow {
+  display: none !important;
+}
+
+/* Highlight ring instead of default */
+.driver-active-element {
+  outline: 2px solid var(--foreground) !important;
+  outline-offset: 3px !important;
+}

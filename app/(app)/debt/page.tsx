@@ -2,6 +2,9 @@
 
 import DebtPage from "@/components/debt/DebtPage";
 import { useDebtData } from "@/lib/hooks/useDebt";
+import { useTour } from "@/lib/tour/useTour";
+import { useTourDriver } from "@/lib/tour/useTourDriver";
+import { mockDebtData } from "@/lib/tour/mockData";
 
 function DebtSkeleton() {
   return (
@@ -44,10 +47,13 @@ function DebtSkeleton() {
 
 export default function Debt() {
   const { data, isLoading, isError } = useDebtData();
+  const tour = useTour();
+  const tourActive = tour.isPageTourActive("debt");
+  useTourDriver("debt");
 
-  if (isLoading) return <DebtSkeleton />;
+  if (isLoading && !tourActive) return <DebtSkeleton />;
 
-  if (isError) {
+  if (isError && !tourActive) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4 px-6">
         <p className="text-sm text-muted-foreground">Failed to load debt data</p>
@@ -55,5 +61,7 @@ export default function Debt() {
     );
   }
 
-  return <DebtPage data={data ?? []} />;
+  const displayData = tourActive ? mockDebtData : (data ?? []);
+
+  return <DebtPage data={displayData} />;
 }

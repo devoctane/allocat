@@ -263,7 +263,7 @@ const trendPct = trendData?.trendPct ?? 0;
 
       <main className="pb-10">
         {/* ── Hero ─────────────────────────────────────────────────── */}
-        <div className="px-7 pt-7 pb-6">
+        <div id="debt-hero-section" className="px-7 pt-7 pb-6">
           <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground mb-2">
             Total Outstanding · <MonthCaption />
           </div>
@@ -302,7 +302,7 @@ const trendPct = trendData?.trendPct ?? 0;
 
         {/* Tick ruler */}
         {totalRepayableAll > 0 && (
-          <div className="px-7 pb-6">
+          <div id="debt-progress-ruler" className="px-7 pb-6">
             <TickRuler pct={overallPct} />
           </div>
         )}
@@ -312,7 +312,7 @@ const trendPct = trendData?.trendPct ?? 0;
         {/* ── Quick Payment ─────────────────────────────────────────── */}
         {quickPayDebts.length > 0 && (
           <>
-            <div className="px-7 pt-5 pb-1 flex justify-between items-baseline">
+            <div id="debt-quick-section" className="px-7 pt-5 pb-1 flex justify-between items-baseline">
               <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
                 Quick Payment
               </span>
@@ -384,7 +384,7 @@ const trendPct = trendData?.trendPct ?? 0;
         )}
 
         {/* ── Tabs ─────────────────────────────────────────────────── */}
-        <div className="px-7 pt-5 pb-1 flex gap-5">
+        <div id="debt-tabs" className="px-7 pt-5 pb-1 flex gap-5">
           {([
             { key: "internal", count: allActiveDebts.filter((d) => d.type === "internal").length, label: "Internal" },
             { key: "external", count: allActiveDebts.filter((d) => d.type === "external").length, label: "External" },
@@ -433,6 +433,7 @@ const trendPct = trendData?.trendPct ?? 0;
                 return (
                   <button
                     key={debt.id}
+                    id={i === 0 ? "debt-row-0" : undefined}
                     onClick={() => openEditSheet(debt)}
                     className="w-full text-left py-3.5 border-t border-border last:border-b last:border-b-border group"
                   >

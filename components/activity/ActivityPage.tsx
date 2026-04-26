@@ -59,14 +59,19 @@ function Chip({
   );
 }
 
-export default function ActivityPage() {
+interface ActivityPageProps {
+  overrideLogs?: ActivityLogRow[];
+}
+
+export default function ActivityPage({ overrideLogs }: ActivityPageProps) {
   const [filter, setFilter] = useState<ActivityFilter>({
     category: "all",
     selectedMonth: null,
   });
   const [selectedLog, setSelectedLog] = useState<ActivityLogRow | null>(null);
 
-  const { data: logs, isLoading, availableMonths } = useActivityLogs(filter);
+  const { data: fetchedLogs, isLoading, availableMonths } = useActivityLogs(filter);
+  const logs = overrideLogs ?? fetchedLogs;
   const groups = groupLogsByDate(logs);
 
   return (
@@ -86,7 +91,7 @@ export default function ActivityPage() {
       </header>
 
       <div className="px-5 pt-4 space-y-2">
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        <div id="activity-category-chips" className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {CATEGORY_CHIPS.map((chip) => (
             <Chip
               key={chip.value}
@@ -123,7 +128,7 @@ export default function ActivityPage() {
         )}
       </div>
 
-      <div className="px-5 pt-6 pb-32 space-y-6">
+      <div id="activity-log-list" className="px-5 pt-6 pb-32 space-y-6">
         {isLoading && (
           <div className="space-y-2">
             {[...Array(5)].map((_, i) => (
@@ -149,18 +154,19 @@ export default function ActivityPage() {
           </div>
         )}
 
-        {groups.map(({ label, items }) => (
-          <div key={label}>
+        {groups.map(({ label, items }, gi) => (
+          <div key={label} id={gi === 0 ? "activity-first-group" : undefined}>
             <p className="text-[0.6rem] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-2">
               {label}
             </p>
             <div className="space-y-1">
-              {items.map((log) => (
-                <ActivityLogItem
-                  key={log.id}
-                  log={log}
-                  onClick={() => setSelectedLog(log)}
-                />
+              {items.map((log, li) => (
+                <div key={log.id} id={gi === 0 && li === 0 ? "activity-first-item" : undefined}>
+                  <ActivityLogItem
+                    log={log}
+                    onClick={() => setSelectedLog(log)}
+                  />
+                </div>
               ))}
             </div>
           </div>

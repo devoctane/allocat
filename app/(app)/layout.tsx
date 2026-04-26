@@ -3,6 +3,7 @@ import SidebarNav from "@/components/SidebarNav";
 import { SyncProvider } from "@/lib/providers/SyncProvider";
 import { SyncStatusBadge } from "@/components/ui/SyncStatusBadge";
 import { InstallPrompt } from "@/components/ui/InstallPrompt";
+import { TourProvider } from "@/lib/tour/TourContext";
 
 export default async function AppLayout({
   children,
@@ -10,6 +11,7 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   return (
+    <TourProvider>
     <SyncProvider>
       <div className="relative flex flex-col min-h-[100dvh] w-full max-w-[480px] mx-auto md:max-w-full md:flex-row bg-background overflow-x-hidden md:overflow-x-visible">
         {/* Sync status indicator — top-right, only visible when offline or syncing */}
@@ -26,5 +28,6 @@ export default async function AppLayout({
         <BottomNav />
       </div>
     </SyncProvider>
+    </TourProvider>
   );
 }

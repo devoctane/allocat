@@ -4,6 +4,9 @@ import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import BudgetPage from "@/components/budget/BudgetPage";
 import { useBudgetData } from "@/lib/hooks/useBudget";
+import { useTour } from "@/lib/tour/useTour";
+import { useTourDriver } from "@/lib/tour/useTourDriver";
+import { mockBudgetData } from "@/lib/tour/mockData";
 
 function BudgetSkeleton() {
   return (
@@ -47,6 +50,9 @@ function BudgetSkeleton() {
 
 function BudgetContent() {
   const searchParams = useSearchParams();
+  const tour = useTour();
+  const tourActive = tour.isPageTourActive("budget");
+  useTourDriver("budget");
 
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
@@ -60,9 +66,9 @@ function BudgetContent() {
 
   const { data, isLoading, isError } = useBudgetData(selectedMonth, selectedYear);
 
-  if (isLoading) return <BudgetSkeleton />;
+  if (isLoading && !tourActive) return <BudgetSkeleton />;
 
-  if (isError || !data) {
+  if (isError || (!data && !tourActive)) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4 px-6">
         <p className="text-sm text-muted-foreground">Failed to load budget</p>
@@ -70,9 +76,13 @@ function BudgetContent() {
     );
   }
 
+  const displayData = tourActive
+    ? { ...mockBudgetData, month: selectedMonth, year: selectedYear }
+    : data!;
+
   return (
     <BudgetPage
-      data={data}
+      data={displayData}
       defaultMonth={selectedMonth}
       defaultYear={selectedYear}
     />

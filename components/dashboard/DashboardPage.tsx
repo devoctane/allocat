@@ -119,7 +119,7 @@ export default function DashboardPage({ data }: DashboardProps) {
         {/* Left column */}
         <div className="md:border-r border-border">
           {/* Budget Summary */}
-          <div className="px-7 py-6 border-b border-border">
+          <div id="dashboard-budget-summary" className="px-7 py-6 border-b border-border">
             <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground mb-3">
               Monthly Budget
             </div>
@@ -143,7 +143,7 @@ export default function DashboardPage({ data }: DashboardProps) {
                     <CurrencyText value={data.budget.remaining} /> left
                   </span>
                 </div>
-                <div className="flex gap-[2px]">
+                <div id="dashboard-budget-progress" className="flex gap-[2px]">
                   {Array.from({ length: 30 }).map((_, j) => (
                     <div
                       key={j}
@@ -169,7 +169,7 @@ export default function DashboardPage({ data }: DashboardProps) {
 
           {/* Quick Log */}
           {data.budget && (
-            <div className="px-7 py-6 border-b border-border md:border-b-0">
+            <div id="dashboard-quick-spend" className="px-7 py-6 border-b border-border md:border-b-0">
               <QuickSpendInput categories={data.categories} />
             </div>
           )}
@@ -178,7 +178,7 @@ export default function DashboardPage({ data }: DashboardProps) {
         {/* Right column */}
         <div>
           {/* Net Worth */}
-          <div className="px-7 py-6 border-b border-border">
+          <div id="dashboard-net-worth-section" className="px-7 py-6 border-b border-border">
             <div className="flex items-baseline justify-between mb-4">
               <div>
                 <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground mb-2">
@@ -203,7 +203,7 @@ export default function DashboardPage({ data }: DashboardProps) {
                 </div>
               </div>
             </div>
-            <div className="h-[80px] w-full">
+            <div id="dashboard-net-worth-chart" className="h-[80px] w-full">
               {data.netWorthHistory.length > 1 ? (
                 <NetWorthChart data={data.netWorthHistory} />
               ) : (
@@ -225,6 +225,7 @@ export default function DashboardPage({ data }: DashboardProps) {
 
           {/* Goals Summary Card */}
           <Link
+            id="dashboard-goals-card"
             href="/goals"
             onClick={() => haptic.light()}
             className="block px-7 py-6 hover:bg-muted/30 transition-colors"
